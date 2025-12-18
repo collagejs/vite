@@ -1,9 +1,9 @@
-import { promises as fs, existsSync } from 'fs';
+import { promises as fs } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import type { CollageJsCssPluginOptions } from './types.js';
 import { closeLog, formatData, markdownCodeBlock, openLog, writeToLog } from './debug.js';
-import type { Plugin, ConfigEnv, UserConfig, HtmlTagDescriptor } from 'vite';
+import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
 import { cssHelpersModuleName, extensionModuleName, typesModuleName } from './ex-defs.js';
 
