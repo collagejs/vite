@@ -1,0 +1,50 @@
+{
+  "name": "@collagejs/vite-aim",
+  "version": "0.1.0",
+  "description": "Vite plug-in that automatically externalizes anything specified in the application's import map during serve.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build && publint",
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "vite",
+    "plugin",
+    "typescript",
+    "import-maps",
+    "externalize",
+    "collagejs"
+  ],
+  "author": {
+    "name": "José Pablo Ramírez Vargas",
+    "email": "webJose@gmail.com"
+  },
+  "homepage": "https://collagejs.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/collagejs/vite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/collagejs/vite/issues"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "publint": "^0.3.16",
+    "vite": "^7.0.0",
+    "vite-plugin-dts": "^4.3.0"
+  },
+  "dependencies": {
+    "@collagejs/shared": "*",
+    "@wjfe/async-workers": "^0.2.4",
+    "picocolors": "^1.1.1"
+  }
+}
