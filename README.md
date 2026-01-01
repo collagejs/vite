@@ -1,90 +1,149 @@
-# <img src="https://raw.githubusercontent.com/collagejs/core/HEAD/src/logos/collagejs-48.svg" alt="CollageJS Logo" width="48" height="48" align="left">&nbsp;@collagejs/vite-css
+# <img src="https://raw.githubusercontent.com/collagejs/core/HEAD/src/logos/collagejs-48.svg" alt="CollageJS Logo" width="48" height="48" align="left">&nbsp;CollageJS Vite Plug-ins
 
-This Vite plug-in can be used to generate a function compliant with the CollageJS `CorePiece.mount` specification.  This function knows, by virtue of its own nature, which CSS bundles are needed by any *CollageJS* pieces, and can therefore ensure they mount and dismount in synchrony with the piece or pieces.
+This is the home repository for:
 
-## Quickstart
+- 📦 `@collagejs/vite-im`:  Injects import maps and the `import-map-overrides` NPM package into the project's root HTML page.  It is used in root *CollageJS* projects.
+- 📦 `@collagejs/vite-css`:  Injects a dynamic module capable of mounting and unmounting the bundled CSS files that Vite produces during its bundling process.  It supports Vite's CSS splitting.
+- 📦 `@collagejs/vite-aim`:  **AIM** stands for "autoexternalize import maps".  This is a plug-in that extracts the web page's import map and uses its contents to resolve bare module identifiers on the fly, allowing developers to import code from micro-frontend modules as if they were installed (like an NPM package).
 
-1. Install the plug-in:
-    ```bash
-    npm i -D @collagejs/vite-css
-    ```
-2. Add it to the list of Vite plug-ins in `vite.config.ts`:
-    ```typescript
-    import { collageJsCssPlugin } from "@collagejs/vite-css";
+## 🏗️ Project Structure
 
-    export default defineConfig({
-        plugins: [
-            ...,
-            collageJsCssPlugin({ serverPort: 4111 /*, etc. */ })
-        ],
-        ...
-    });
-    ```
-3. On each input file, which by default is only the one named `src/piece.ts`, we import the function factory and use it in all factory functions that create *CollageJS* pieces:
-    ```typescript
-    import { buildPiece } from "@collagejs/<insert your framework here>";
-    import { cssMountFactory } from "@collagejs/vite-css/ex";
-    ...
+```
+├── .github/
+│   └── copilot-instructions.md   # Project guidelines
+├── packages/
+│   ├── shared/                   # Code shared among all plug-ins
+│   ├── aim/                      # Source code for @collagejs/vite-aim
+│   ├── css/                      # Source code for @collagejs/vite-css
+│   └── im/                       # Source code for @collagejs/vite-im
+├── scripts/
+│   ├── sync-shared.ts            # Utility script that enables the main trick for sharing code
+├── package.json                  # Root workspace configuration
+├── tsconfig.json                 # TypeScript project references
+├── tsconfig.base.json            # Shared TypeScript configuration
+├── .eslintrc.js                  # ESLint configuration
+└── .prettierrc.json              # Prettier configuration
+```
 
-    // IMPORTANT:  The first argument to the function is the file's name.
-    // Assuming this is src/piece.ts, we pass "piece" (no extension).
-    const cssMount = cssMountFactory('piece' /*, { options } */);
+## 🚀 Quick Start
 
-    export function myPieceFactory() {
-        const piece = buildPiece(...);
-        return {
-            mount: [cssMount, piece.mount],
-            update: piece.update
-        };
-    }
-    ```
+### Prerequisites
+- Node.js >= 24.0.0
+- npm >= 11.5.0
 
-> Note how we build `cssMount` outside the factory function.  This is because we can reuse it in all factory functions exported by the module.  We only need one of these per module (not per factory function).
+### Installation
 
-This should work for any Vite-powered project.
+```bash
+# Install all dependencies for the monorepo
+npm install
 
-> ⚠️ **IMPORTANT**:  The CSS-mounting function features FOUC prevention, but it only works if it is listed *first* in the array of mount functions, like shown in the example.
+# Build all packages
+npm run build
+```
 
-## Plug-in Options
+## 🛠️ Development
 
-### `serverPort`
+Before attempting development, we must understand the monorepo trick done here.  The author did not want to create an entire NPM package just to share code because this would impose a bundler on each of the package projects.
 
-The only required option:  The port number this project will be assigned when running locally using `npm run dev` or `npm run preview`.
+So instead, and before starting to modify code, execute the script that synchronizes (and watches) the shared code files with all plug-in source folders:
 
-### `localhostSsl`
+```bash
+npm run watch-shared
+```
 
-A Boolean value, whose default value is `false` that indicates if Vite's development server should use SSL (https).
+The process will remain, watching for changes in the real source files under `/src/packages/shared/` and will synchronize changes to all package source code folders.
 
-### `entryPoints`
+To reference a a shared source code file, use the path alias `$`:
 
-This is one very important option to know.  Its default value is `src/piece.ts`, but can also be an array of strings.  In short, this is the list of files that export *CollageJS* piece factories.  This is the list of modules whose exports we want visible.
+```typescript
+import { fmt } from '$/logging.js';
 
-### `projectId`
+...
+```
 
-This should be set to a unique identifier of maximum 20 characters that uniquely identifies the *CollageJS* pieces provided by the Vite project.  It is used to uniquely name CSS bundles, so the automatic CSS-mounting algorithm can identify them properly.
+### Available Scripts
 
-If no value is provided, the package.json's `name` property will be used by default (or at least the first 20 characters of it).
+```bash
+# Build all packages
+npm run build
 
-> ⚠️ Be sure to provide a project ID or a name to your project in `package.json`.
+# Start development mode with file watching
+npm run dev
 
-### `assetFileNames`
+# Run tests across all packages
+npm run test
 
-This option accepts a Rollup-compliant pattern for asset filenames.  Refer to its [documentation online](https://rollupjs.org/configuration-options/#output-assetfilenames) for full details.  Note, however, that the pattern will only be respected for non-CSS assets.  CSS files will be named in the form `cjcss(<project id>)<pattern>`, so not exactly the provided pattern.
+# Lint all packages
+npm run lint
 
-By default, this option's value is `'assets/[name]-[hash][extname]'`.  Yes, you may add sub directories to the pattern.
+# Type check all packages
+npm run type-check
 
-## Factory Function Options
+# Clean build artifacts
+npm run clean
+```
 
-### `logger`
+### Working on Individual Packages
 
-Used to control where or when log entries go.  When set to `true` or not set, logging occurs through the browser's standard console.  When set to `false`, logging is turned off; when set to a custom logger object, then the logger object is used for logging, and the object decides what happens with those log entries.
+You can also work on individual packages:
 
-### `loadTimeout`
+```bash
+# Navigate to a specific package
+cd packages/aim
 
-The CSS-mounting algorithm provided by this package features FOUC (Flash Of Unstyled Content) prevention by ensuring the browser loads the CSS before giving way to the micro-frontend/piece mounting process.  This property, whose default value is `1500`, is used to set the amount of time (in milliseconds) the FOUC-prevention feature waits for CSS to load before giving up.
+# Install dependencies (if needed)
+npm install
 
-### `failOnTimeout` and `failOnError`
+# Build this package only
+npm run build
 
-These properties, when set to `true`, tell the FOUC-prevention algorithm to throw an error whenever a CSS resource fails to load, or takes too long to load.  Their default value is `false`, which signals the algorithm to emit console warnings only.
+# Watch mode for development
+npm run dev
+```
 
-When throwing errors, the micro-frontend/piece mounting process interrupts.
+## 🧪 Testing Your Plugins
+
+To test your plugins in a Vite project, you can:
+
+1. Build the plugin: `npm run build`
+2. Link it locally: `npm link` (in the plugin directory)
+3. Use it in a test project: `npm link @collagejs/<package name>`
+
+## 📝 Creating New Plugins
+
+To add a new plugin to this monorepo:
+
+1. Create a new directory in `packages/`
+2. Copy the structure from an existing plugin
+3. Update the package name and description
+4. Add the new package to the TypeScript project references in the root `tsconfig.json`
+5. Implement your plugin logic
+
+## 🔧 Configuration
+
+- **TypeScript**: Shared configuration in `tsconfig.base.json`
+- **ESLint**: Root configuration in `.eslintrc.js`
+- **Prettier**: Root configuration in `.prettierrc.json`
+
+## 📄 License
+
+MIT - see individual package.json files for details.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Run `npm run lint` and `npm run type-check`
+6. Submit a pull request
+
+### Using Shared Utilities
+
+See [SHARED-USAGE.md](./SHARED-USAGE.md) for examples of how to use the shared utilities package in your plugins.
+
+## 📚 Resources
+
+- [Vite Plugin API](https://vitejs.dev/guide/api-plugin.html)
+- [TypeScript Project References](https://www.typescriptlang.org/docs/handbook/project-references.html)
+- [npm Workspaces](https://docs.npmjs.com/cli/v7/using-npm/workspaces)
