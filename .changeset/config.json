@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@collagejs/vite-im", "@collagejs/vite-aim"]
+  "ignore": []
 }
