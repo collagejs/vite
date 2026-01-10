@@ -47,7 +47,7 @@
     "type-check": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@collagejs/core": "^0.1.0",
+    "@collagejs/core": "0.x || 1.x",
     "vite": "^7.0.0"
   },
   "devDependencies": {
