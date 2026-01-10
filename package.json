@@ -17,10 +17,14 @@
     "lint": "npm run lint --workspaces",
     "check": "npm run type-check --workspaces",
     "clean": "npm run clean --workspaces",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "changeset:publish": "changeset publish",
     "preinstall": "node -e \"if(process.env.npm_execpath.indexOf('yarn') !== -1) throw new Error('Use npm instead of yarn')\"",
     "postinstall": "npm run build"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.8",
     "@types/node": "^20.10.0",
     "cpx2": "^7.0.1",
     "picocolors": "^1.0.0",

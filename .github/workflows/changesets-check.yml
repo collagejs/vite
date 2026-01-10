@@ -1,0 +1,21 @@
+name: Changesets Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  changeset-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: changesets/action@v1
+        with:
+          # Only check, don't create PR
+          version: npm run changeset:version
