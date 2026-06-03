@@ -8,6 +8,12 @@
   "files": [
     "dist"
   ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "vite build && publint",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
@@ -40,9 +46,10 @@
   "devDependencies": {
     "publint": "^0.3.16",
     "vite": "^7.0.0",
-    "vite-plugin-dts": "^4.3.0"
+    "vite-plugin-dts": "^5.0.2"
   },
   "dependencies": {
+    "@collagejs/importmap": "^0.2.0",
     "@collagejs/shared": "*",
     "@wjfe/async-workers": "^0.2.4",
     "picocolors": "^1.1.1"

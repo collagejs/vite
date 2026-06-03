@@ -7,7 +7,6 @@ import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
 import { cssHelpersModuleName, extensionModuleName, typesModuleName } from './ex-defs.js';
 
-
 /**
  * Factory function that produces the `@collagejs/vite-css` plugin factory.  Yes, a factory of factories.
  * 
@@ -42,10 +41,6 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
          * Map of CSS files for CSS mounting.
          */
         const cssMap: Record<string, string[]> = {};
-        /**
-         * Control variable used just for logging chunks to a log file.  When `true`, the title has already been written.
-         */
-        let chunkInfoTitleWrittenToLog = false;
 
         /**
          * Builds a full path using the provided file name and this module's file location.
@@ -70,22 +65,23 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
 
         /**
          * Builds the configuration required for CollageJS projects.
+         * @param cfg Incoming Vite configuration.
          * @param viteOpts Vite options.
          * @returns An object with the necessary Vite options for CollageJS projects.
          */
-        async function mifeConfig(viteOpts: ConfigEnv) {
-            const cfg: UserConfig = {};
+        async function mifeConfig(cfg: UserConfig, viteOpts: ConfigEnv) {
+            const computedConfig: UserConfig = {};
             if (!config) {
-                return cfg;
+                return computedConfig;
             }
             projectId = config.projectId ??
                 JSON.parse(await readFile('./package.json', { encoding: 'utf8' })).name;
             projectId = projectId.substring(0, 20);
-            cfg.server = {
+            computedConfig.server = {
                 port: config.serverPort,
                 origin: `http${config.localhostSsl ? 's' : ''}://localhost:${config.serverPort}`,
             };
-            cfg.preview = {
+            computedConfig.preview = {
                 port: config.serverPort,
             };
             const entryFileNames = '[name].js';
@@ -108,27 +104,28 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
             const assetFileNames = config.assetFileNames ?? 'assets/[name]-[hash][extname]';
             const fileInfo = path.parse(assetFileNames);
             const cssFileNames = path.join(fileInfo.dir, `cjcss(${projectId})${fileInfo.name}`);
-            cfg.build = {
+            computedConfig.build = {
                 rollupOptions: {
                     input,
                     preserveEntrySignatures,
                     output: {
                         exports: 'auto',
+                        entryFileNames,
+                        ...(!Array.isArray(cfg.build?.rollupOptions?.output) && cfg.build?.rollupOptions?.output),
                         assetFileNames: ai => {
                             if (ai.names?.some(name => name.endsWith('.css'))) {
                                 return cssFileNames;
                             }
                             return assetFileNames;
                         },
-                        entryFileNames
                     }
                 }
             };
             if (lg?.config) {
                 await writeToLog('# Plug-In Configuration\n\n');
-                await writeToLog(markdownCodeBlock(formatData("%o", cfg)));
+                await writeToLog(markdownCodeBlock(formatData("%o", computedConfig)));
             }
-            return cfg;
+            return computedConfig;
         }
 
         return {
@@ -139,12 +136,13 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                     await writeToLog('# Incoming Configuration\n\n');
                     await writeToLog(markdownCodeBlock(formatData("%o", cfg)));
                 }
-                return await mifeConfig(opts);
+                return await mifeConfig(cfg, opts);
             },
             resolveId: {
                 order: 'pre',
-                handler(source, _importer, _options) {
+                handler(source, importer, _options) {
                     if ([extensionModuleName, cssHelpersModuleName, typesModuleName].includes(source)) {
+                        console.debug(`Resolving module ${source} imported by ${importer}`);
                         return source;
                     }
                     return null;
@@ -159,40 +157,33 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                 }
                 return null;
             },
-            renderChunk: {
-                order: 'post',
-                async handler(_code, chunk, options, meta) {
-                    let errorOccurred = false;
-                    // Even if renderChunk is documented as "sequential", it is run in parallel for each chunk.
-                    // This makes log entries mix with each other.  Solution:  Build the chunk log entry data 
-                    // and then write it to the log in one call.
+            async generateBundle(_options, bundle, _isWrite) {
+                let errorOccurred = false;
+                if (lg?.chunks) {
+                    await writeToLog("# Chunk Information\n");
+                }
+                for (let x in bundle) {
+                    const chunk = bundle[x];
                     let logData: string = '';
                     try {
                         if (lg?.chunks) {
-                            if (!chunkInfoTitleWrittenToLog) {
-                                chunkInfoTitleWrittenToLog = true;
-                                logData += formatData("# Chunk Information\n");
-                            }
                             logData += formatData("## %s", chunk.fileName);
                             logData += markdownCodeBlock(formatData("%o", chunk));
-                            logData += markdownCodeBlock(formatData("options: %o", options));
-                            logData += markdownCodeBlock(formatData("meta: %o", meta));
                         }
-                        if (chunk.isEntry) {
-                            // Recursively collect all CSS files that this entry point might need.
+                        if (chunk.type === 'chunk' && chunk.isEntry) {
                             const cssFiles = new Set<string>();
                             const processedImports = new Set<string>();
                             const collectCssFiles = (curChunk: RenderedChunk | undefined) => {
                                 if (!curChunk) {
                                     return;
                                 }
-                                curChunk.viteMetadata?.importedCss.forEach(css => cssFiles.add(css));
-                                for (let imp of curChunk.imports) {
-                                    if (processedImports.has(imp)) {
+                                curChunk.viteMetadata?.importedCss?.forEach(css => cssFiles.add(css));
+                                for (let imp of curChunk.imports || []) {
+                                    if (processedImports.has(imp) || bundle[imp]?.type !== 'chunk') {
                                         continue;
                                     }
                                     processedImports.add(imp);
-                                    collectCssFiles(meta.chunks[imp]);
+                                    collectCssFiles(bundle[imp]);
                                 }
                             };
                             collectCssFiles(chunk);
@@ -212,9 +203,8 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                             await closeLog();
                         }
                     }
-                },
-            },
-            async generateBundle(_options, bundle, _isWrite) {
+                }
+                // TODO: generateBundle probably only ever runs for builds, so the IF statement is probably unneeded.
                 if (viteEnv.command === 'build') {
                     await closeLog();
                 }
@@ -224,7 +214,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                     if (entry?.type === 'chunk') {
                         entry.code = entry.code
                             ?.replace('{cjcss:PROJECT_ID}', projectId)
-                            .replace('"{cjcss:CSS_MAP}"', stringifiedCssMap);
+                            .replace(/['"]{cjcss:CSS_MAP}['"]/, stringifiedCssMap);
                     }
                 }
             },
