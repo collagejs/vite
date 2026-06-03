@@ -1,40 +1,21 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { pluginFactory } from '../src/plugin-factory.js';
-
 import path from 'path';
-import type { OutputOptions, PreRenderedAsset, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
-import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, UserConfig } from 'vite';
+import type { OutputBundle, OutputChunk, OutputOptions, PreRenderedAsset, PreserveEntrySignaturesOption } from 'rollup';
+import type { ConfigEnv, UserConfig } from 'vite';
 import type { CollageJsCssPluginOptions } from "../src/types.js";
 import { cssHelpersModuleName, extensionModuleName } from '../src/ex-defs.js';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 type ResolveIdHandler = (this: void, source: string) => string;
 type LoadHandler = (this: void, id: string) => Promise<string>;
-type RenderChunkHandler = { handler: (this: void, code: string, chunk: RenderedChunk, options: Record<any, any>, meta: { chunks: Record<string, RenderedChunk> }) => Promise<any> };
 type GenerateBundleHandler = (this: void, options: any, bundle: Record<string, any>) => Promise<void>;
 
 const viteCommands: ConfigEnv['command'][] = [
     'serve',
     'build'
 ];
-
-const viteModes: ConfigEnv['mode'][] = [
-    'development',
-    'production'
-];
-
-function subSetOf(subset: Record<any, any>, superset: Record<any, any> | undefined) {
-    if (!superset) {
-        return false;
-    }
-    for (let [key, value] of Object.entries(subset)) {
-        if (value !== superset[key]) {
-            return false;
-        }
-    }
-    return true;
-}
 
 // Mocked package.json.
 const pkgJson = {
@@ -127,6 +108,79 @@ describe('pluginFactory', () => {
         expect(fileNameSetting).to.not.match(/\[hash\]/);
     };
     it("Should set the output's entry file names to a hash-less pattern.", () => fileNamesTest('entryFileNames'));
+    it("Should merge the user-provided rollup output options, allowing overrides.", async () => {
+        // Arrange.
+        const userEntryFileNames = 'custom-entry-[hash].js';
+        const options: CollageJsCssPluginOptions = { serverPort: 4111 };
+        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const env: ConfigEnv = { command: 'build', mode: 'development' };
+        const userConfig: UserConfig = {
+            build: {
+                rollupOptions: {
+                    output: {
+                        entryFileNames: userEntryFileNames
+                    }
+                }
+            }
+        };
+
+        // Act.
+        const config = await (plugIn.config as ConfigHandler)(userConfig, env);
+
+        // Assert.
+        expect(config?.build?.rollupOptions?.output).to.not.equal(undefined);
+        const entryFileNames = (config!.build!.rollupOptions!.output as OutputOptions).entryFileNames;
+        expect(entryFileNames).to.equal(userEntryFileNames);
+    });
+    it("Should not accept overriding of 'assetFileNames'.", async () => {
+        // Arrange.
+        const userAssetFileNames = 'custom-asset-[hash][extname]';
+        const options: CollageJsCssPluginOptions = { serverPort: 4111 };
+        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const env: ConfigEnv = { command: 'build', mode: 'development' };
+        const userConfig: UserConfig = {
+            build: {
+                rollupOptions: {
+                    output: {
+                        assetFileNames: userAssetFileNames
+                    }
+                }
+            }
+        };
+
+        // Act.
+        const config = await (plugIn.config as ConfigHandler)(userConfig, env);
+
+        // Assert.
+        expect(config?.build?.rollupOptions?.output).to.not.equal(undefined);
+        const assetFileNames = (config!.build!.rollupOptions!.output as OutputOptions).assetFileNames;
+        expect(assetFileNames).to.not.equal(userAssetFileNames);
+    });
+    it("Should ignore user-provided rollup output options if they are provided as an array.", async () => {
+        // Arrange.
+        const userEntryFileNames = 'custom-entry-[hash].js';
+        const options: CollageJsCssPluginOptions = { serverPort: 4111 };
+        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const env: ConfigEnv = { command: 'build', mode: 'development' };
+        const userConfig: UserConfig = {
+            build: {
+                rollupOptions: {
+                    output: [
+                        {
+                            entryFileNames: userEntryFileNames
+                        }
+                    ]
+                }
+            }
+        };
+
+        // Act.
+        const config = await (plugIn.config as ConfigHandler)(userConfig, env);
+        // Assert.
+        expect(config?.build?.rollupOptions?.output).to.not.equal(undefined);
+        const entryFileNames = (config!.build!.rollupOptions!.output as OutputOptions).entryFileNames;
+        expect(entryFileNames).to.not.equal(userEntryFileNames);
+    });
     const assetFileNameTest = async (pattern: string | undefined, cssExpectation: string, nonCssExpectation: string) => {
         // Arrange.
         const options: CollageJsCssPluginOptions = { serverPort: 4111, assetFileNames: pattern };
@@ -343,70 +397,36 @@ describe('pluginFactory', () => {
     for (let tc of viteEnvValueReplacementTestData) {
         it(`Should replace the values of "viteEnv" appropriately on ${tc.cmd} with mode "${tc.mode}".`, () => viteEnvValueReplacementTest(tc.cmd, tc.mode));
     }
-    it('Should not throw any errors if there are imported chunks that are not found in "meta".', async () => {
+    const cssMapInsertionTest = async (bundle: OutputBundle, expectedMap: Record<string, string[]>) => {
         // Arrange.
         const plugIn = pluginFactory(readPkgJsonFile)({ serverPort: 4444 });
         const env: ConfigEnv = { command: 'build', mode: 'production' };
-        const chunk = {
-            name: 'A',
-            fileName: 'A.js',
-            isEntry: true,
-            imports: ['react'],
-            viteMetadata: {
-                importedAssets: buildSet(),
-                importedCss: buildSet(['A.css'])
-            }
-        };
-        const meta: { chunks: Record<string, RenderedChunk> } = {
-            chunks: {}
-        };
         await (plugIn.config as ConfigHandler)({}, env);
+        for (let x in bundle) {
+            const chunk = bundle[x] as OutputChunk;
+            if (chunk.isEntry) {
+                chunk.code = '"{cjcss:CSS_MAP}"';
+            }
+        }
 
         // Act.
-        let caughtError = false;
-        try {
-            await (plugIn.renderChunk as RenderChunkHandler).handler('', chunk as RenderedChunk, {}, meta);
-        }
-        catch (err) {
-            caughtError = true;
-        }
+        await (plugIn.generateBundle as GenerateBundleHandler)(null, bundle);
 
         // Assert.
-        expect(caughtError).to.equal(false);
-    });
-    const cssMapInsertionTest = async (chunks: RenderedChunk[], expectedMap: Record<string, string[]>) => {
-        // Arrange.
-        const plugIn = pluginFactory(readPkgJsonFile)({ serverPort: 4444 });
-        const env: ConfigEnv = { command: 'build', mode: 'production' };
-        const meta: { chunks: Record<string, RenderedChunk> } = {
-            chunks: {}
-        };
-        for (let ch of chunks) {
-            meta.chunks[ch.fileName] = ch;
-        }
-        await (plugIn.config as ConfigHandler)({}, env);
-        for (let ch of chunks) {
-            await (plugIn.renderChunk as RenderChunkHandler).handler('', ch, {}, meta);
-        }
-        const bundle = {
-            'a.js': {
-                type: 'chunk',
-                code: '"{cjcss:CSS_MAP}"'
+        for (let x in bundle) {
+            const chunk = bundle[x] as OutputChunk;
+            if (chunk.isEntry) {
+                const calculatedCssMap = JSON.parse(JSON.parse(chunk.code));
+                expect(calculatedCssMap).to.deep.equal(expectedMap);
             }
-        };
-
-        // Act.
-        await (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
-
-        // Assert.
-        const calculatedCssMap = JSON.parse(JSON.parse(bundle['a.js'].code));
-        expect(calculatedCssMap).to.deep.equal(expectedMap);
+        }
     };
     const buildSet = (items?: string[]) => new Set(items);
-    const cssMapInsertionTestData: { chunks: Partial<RenderedChunk>[]; text: string; expectedMap: Record<string, string[]>; }[] = [
+    const cssMapInsertionTestData = [
         {
-            chunks: [
-                {
+            chunks: {
+                'A.js': {
+                    type: 'chunk',
                     name: 'A',
                     fileName: 'A.js',
                     isEntry: true,
@@ -416,15 +436,16 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['A.css'])
                     }
                 }
-            ],
+            },
             text: 'A[1]:  a',
             expectedMap: {
                 'A': ['A.css']
             }
         },
         {
-            chunks: [
-                {
+            chunks: {
+                'A.js': {
+                    type: 'chunk',
                     name: 'A',
                     fileName: 'A.js',
                     isEntry: true,
@@ -434,7 +455,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet()
                     }
                 },
-                {
+                'b.js': {
+                    type: 'chunk',
                     name: 'b',
                     fileName: 'b.js',
                     isEntry: false,
@@ -444,15 +466,16 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['b.css'])
                     }
                 }
-            ],
+            },
             text: 'A, b[1]:  A->b',
             expectedMap: {
                 'A': ['b.css']
             }
         },
         {
-            chunks: [
-                {
+            chunks: {
+                'A.js': {
+                    type: 'chunk',
                     name: 'A',
                     fileName: 'A.js',
                     isEntry: true,
@@ -462,7 +485,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet()
                     }
                 },
-                {
+                'b.js': {
+                    type: 'chunk',
                     name: 'b',
                     fileName: 'b.js',
                     isEntry: false,
@@ -472,7 +496,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['b.css'])
                     }
                 },
-                {
+                'c.js': {
+                    type: 'chunk',
                     name: 'c',
                     fileName: 'c.js',
                     isEntry: false,
@@ -482,15 +507,16 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['c.css'])
                     }
                 }
-            ],
+            },
             text: 'A, b[1], c[1]:  A->bc',
             expectedMap: {
                 'A': ['b.css', 'c.css']
             }
         },
         {
-            chunks: [
-                {
+            chunks: {
+                'A.js': {
+                    type: 'chunk',
                     name: 'A',
                     fileName: 'A.js',
                     isEntry: true,
@@ -500,7 +526,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['A.css'])
                     }
                 },
-                {
+                'b.js': {
+                    type: 'chunk',
                     name: 'b',
                     fileName: 'b.js',
                     isEntry: false,
@@ -510,7 +537,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['b.css'])
                     }
                 },
-                {
+                'c.js': {
+                    type: 'chunk',
                     name: 'c',
                     fileName: 'c.js',
                     isEntry: false,
@@ -520,15 +548,16 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['c.css'])
                     }
                 }
-            ],
+            },
             text: 'A[1], b[1], c[1]:  A->bc',
             expectedMap: {
                 'A': ['A.css', 'b.css', 'c.css']
             }
         },
         {
-            chunks: [
-                {
+            chunks: {
+                'A.js': {
+                    type: 'chunk',
                     name: 'A',
                     fileName: 'A.js',
                     isEntry: true,
@@ -538,7 +567,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['A.css'])
                     }
                 },
-                {
+                'b.js': {
+                    type: 'chunk',
                     name: 'b',
                     fileName: 'b.js',
                     isEntry: false,
@@ -548,7 +578,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['b.css'])
                     }
                 },
-                {
+                'c.js': {
+                    type: 'chunk',
                     name: 'c',
                     fileName: 'c.js',
                     isEntry: false,
@@ -558,15 +589,16 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['c.css'])
                     }
                 }
-            ],
+            },
             text: 'A[1], b[1], c[1]:  A->bc, b->c',
             expectedMap: {
                 'A': ['A.css', 'b.css', 'c.css']
             }
         },
         {
-            chunks: [
-                {
+            chunks: {
+                'A.js': {
+                    type: 'chunk',
                     name: 'A',
                     fileName: 'A.js',
                     isEntry: true,
@@ -576,7 +608,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['A.css'])
                     }
                 },
-                {
+                'b.js': {
+                    type: 'chunk',
                     name: 'b',
                     fileName: 'b.js',
                     isEntry: false,
@@ -586,7 +619,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['b.css'])
                     }
                 },
-                {
+                'c.js': {
+                    type: 'chunk',
                     name: 'c',
                     fileName: 'c.js',
                     isEntry: false,
@@ -596,7 +630,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['c.css'])
                     }
                 },
-                {
+                'd.js': {
+                    type: 'chunk',
                     name: 'd',
                     fileName: 'd.js',
                     isEntry: false,
@@ -606,15 +641,16 @@ describe('pluginFactory', () => {
                         importedCss: buildSet()
                     }
                 }
-            ],
+            },
             text: 'A[1], b[1], c[1], d[1]:  A->bc',
             expectedMap: {
                 'A': ['A.css', 'b.css', 'c.css']
             }
         },
         {
-            chunks: [
-                {
+            chunks: {
+                'A.js': {
+                    type: 'chunk',
                     name: 'A',
                     fileName: 'A.js',
                     isEntry: true,
@@ -624,7 +660,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['A.css'])
                     }
                 },
-                {
+                'b.js': {
+                    type: 'chunk',
                     name: 'b',
                     fileName: 'b.js',
                     isEntry: false,
@@ -634,7 +671,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['b.css'])
                     }
                 },
-                {
+                'c.js': {
+                    type: 'chunk',
                     name: 'c',
                     fileName: 'c.js',
                     isEntry: false,
@@ -644,7 +682,8 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['c.css'])
                     }
                 },
-                {
+                'P.js': {
+                    type: 'chunk',
                     name: 'P',
                     fileName: 'P.js',
                     isEntry: true,
@@ -654,17 +693,58 @@ describe('pluginFactory', () => {
                         importedCss: buildSet(['P.css'])
                     }
                 }
-            ],
+            },
             text: 'A[1], b[1], c[1], P[1]:  A->bc, P->c',
             expectedMap: {
                 'A': ['A.css', 'b.css', 'c.css'],
                 'P': ['P.css', 'c.css']
             }
         },
-    ];
+    ] as unknown as { chunks: OutputBundle; text: string; expectedMap: Record<string, string[]>; }[];
     for (let tc of cssMapInsertionTestData) {
-        it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks as RenderedChunk[], tc.expectedMap));
+        it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks, tc.expectedMap));
     }
+    const cssMapQuotationMarkReplacementTest = async (quote: '"' | "'") => {
+        // Arrange.
+        const moduleContent = `${quote}{cjcss:CSS_MAP}${quote}`;
+        const plugIn = pluginFactory(readPkgJsonFile)({ serverPort: 4444 });
+        const env: ConfigEnv = { command: 'build', mode: 'production' };
+        await (plugIn.config as ConfigHandler)({}, env);
+        const bundle = {
+            'A.js': {
+                type: 'chunk',
+                name: 'A',
+                fileName: 'A.js',
+                isEntry: true,
+                imports: [],
+                viteMetadata: {
+                    importedAssets: buildSet(),
+                    importedCss: buildSet(['A.css'])
+                },
+                code: moduleContent
+            } as unknown as OutputChunk
+        };
+
+        // Act.
+        await (plugIn.generateBundle as GenerateBundleHandler)(null, bundle);
+
+        // Assert.
+        const entry = bundle['A.js'] as OutputChunk;
+        const calculatedCssMap = JSON.parse(JSON.parse(entry.code));
+        expect(calculatedCssMap).to.deep.equal({ 'A': ['A.css'] });
+    };
+    [
+        {
+            quote: '"' as const,
+            text: 'double'
+        },
+        {
+            quote: "'" as const,
+            text: 'single'  
+        }
+    ].forEach(tc => {
+        it(`Should correctly replace the CSS Map placeholder when it is wrapped in ${tc.text} quotes.`, () => cssMapQuotationMarkReplacementTest(tc.quote));
+    });
     it("Should insert the package's name in the chunks that require it.", async () => {
         // Arrange.
         const plugIn = pluginFactory(readPkgJsonFile)({ serverPort: 4444 });

@@ -104,7 +104,7 @@ export function pluginFactory(
                 }
                 const imoUrl = typeof options?.imo === 'function' ?
                     options.imo() :
-                    `https://cdn.jsdelivr.net/npm/import-map-overrides@${imoVersion}/dist/import-map-overrides.js`;
+                    `https://cdn.jsdelivr.net/npm/@collagejs/imo@${imoVersion}/dist/imo.min.js`;
                 tags.push({
                     tag: 'script',
                     attrs: {

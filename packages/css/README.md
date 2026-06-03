@@ -1,4 +1,4 @@
-# <img src="https://raw.githubusercontent.com/collagejs/core/HEAD/src/logos/collagejs-48.svg" alt="CollageJS Logo" width="48" height="48" align="left">&nbsp;@collagejs/vite-css
+# <img src="https://raw.githubusercontent.com/collagejs/core/HEAD/src/logos/collagejs-48.svg" alt="CollageJS Logo" width="48" height="48" align="left">&nbsp;Vite-css Plug-In
 
 This Vite plug-in can be used to generate a function compliant with the CollageJS `CorePiece.mount` specification.  This function knows, by virtue of its own nature, which CSS bundles are needed by any *CollageJS* pieces, and can therefore ensure they mount and dismount in synchrony with the piece or pieces.
 

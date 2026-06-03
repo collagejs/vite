@@ -6,5 +6,5 @@ import { pluginFactory } from "./plugin-factory.js";
  * @param options Configuration options for the plug-in.
  * @returns A configured Vite plug-in instance.
  */
-export const collageJsCssPlugin = pluginFactory();
+export const cjsCssPlugin = pluginFactory();
 export type * from "./types.js";
