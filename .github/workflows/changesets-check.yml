@@ -12,13 +12,18 @@ jobs:
   changeset-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: changesets/action@v1
+      - name: Setup Node and install dependencies
+        uses: actions/setup-node@v6
         with:
-          # Only check, don't create PR
-          version: npm run changeset:version
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check Changesets status
+        run: npm exec changeset status -- --since main

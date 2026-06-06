@@ -47,8 +47,11 @@
     "type-check": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@collagejs/core": "0.x || 1.x",
     "vite": "^7.0.0"
+  },
+  "dependencies": {
+    "@collagejs/core": "0.x || 1.x",
+    "@collagejs/vite-aim": "0.x || 1.x"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",
