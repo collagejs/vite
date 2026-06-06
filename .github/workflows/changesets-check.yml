@@ -25,9 +25,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - uses: changesets/action@v1
-        with:
-          # Only check, don't create PR
-          version: npm run changeset:version
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check Changesets status
+        run: npm exec changeset status -- --since main
