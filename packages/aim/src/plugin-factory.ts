@@ -1,4 +1,4 @@
-import { createLogger, type Logger, type Plugin, type ResolvedConfig } from 'vite';
+import { Connect, createLogger, type Logger, type Plugin, type ResolvedConfig } from 'vite';
 import { ManualResetEvent } from '@wjfe/async-workers';
 import pc from "picocolors";
 import { fmt, showCollageBanner, ImportMap } from "@collagejs/shared";
@@ -6,7 +6,19 @@ import type { PluginOptions } from './types.js';
 import type { ExternalOption } from 'rollup';
 import { resolver, type Resolver } from '@collagejs/importmap';
 
-const pluginName = '@collagejs/vite-aim';
+/**
+ * The name of the plugin, used in Vite's plugin system and for logging purposes.
+ * 
+ * NOTE:  This is exported for testing purposes only.
+ */
+export const pluginName = '@collagejs/vite-aim';
+
+/**
+ * The default endpoint where to receive import map data from a client application.
+ * 
+ * NOTE:  This is exported for testing purposes only.
+ */
+export const defaultImportMapEndpoint = '/__import_map';
 
 /**
  * Creates a function compliant with Rollup's ExternalOption that merges multiple externalization options.
@@ -51,7 +63,7 @@ export function mergeExternalOptions(...options: ExternalOption[]): ExternalOpti
  */
 export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
     const {
-        importMapEndpoint = '/__import_map',
+        importMapEndpoint = defaultImportMapEndpoint,
         allowedOrigins = [], // Developer must specify allowed origins
         pathExceptions = [],
         importMapTimeout = 2_000, // 2 seconds
@@ -134,8 +146,6 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
             };
 
             const stockPathExceptions = [
-                joinPaths('/index.html'),
-                joinPaths('/'),
                 joinPaths('/@vite/client'),
             ];
 
@@ -144,22 +154,25 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
             /**
              * Helper: Determines if this is a JavaScript request that should be blocked
              */
-            const shouldBlockJavaScriptRequest = (req: any): boolean => {
+            const shouldBlockJavaScriptRequest = (req: Connect.IncomingMessage): boolean => {
                 // Only block in development mode
-                if (config.command !== 'serve') return false;
+                if (config.command !== 'serve') {
+                    return false;
+                }
 
                 // Only block GET requests for JavaScript files
-                if (req.method !== 'GET') return false;
+                if (req.method !== 'GET') {
+                    return false;
+                }
 
                 if (ManualResetEvent.isSignaled(importMapReadyEvent.token)) {
                     return false;
                 }
 
                 // Path exceptions.
-                if (allPathExceptions.includes(req.url)) {
+                if (allPathExceptions.some(ex => new RegExp(`^${ex}(?:\\?.*)?$`).test(req.url ?? ''))) {
                     return false;
                 }
-
                 return true;
             };
 
@@ -223,7 +236,7 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
                     });
                 } else if (req.method === 'OPTIONS') {
                     // Handle CORS preflight
-                    res.writeHead(200, {
+                    res.writeHead(204, {
                         'Access-Control-Allow-Origin': '*',
                         'Access-Control-Allow-Methods': 'POST, OPTIONS',
                         'Access-Control-Allow-Headers': 'Content-Type'
@@ -242,7 +255,7 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
             // Request blocking middleware - blocks JS requests until import map received
             devServer.middlewares.use(async (req, _res, next) => {
                 if (!shouldBlockJavaScriptRequest(req)) {
-                    return next();
+                    next();
                 }
                 logger.warn(`Blocking JS request until the import map is received: ${fmt.url(req.url)}`, { timestamp: true });
                 try {
