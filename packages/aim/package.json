@@ -46,6 +46,8 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
+    "@collagejs/shared": "*",
+    "@microsoft/api-extractor": "^7.58.9",
     "publint": "^0.3.16",
     "vite": "^7.0.0",
     "vite-plugin-dts": "^5.0.2",
@@ -53,7 +55,6 @@
   },
   "dependencies": {
     "@collagejs/importmap": "^0.2.0",
-    "@collagejs/shared": "*",
     "@wjfe/async-workers": "^0.2.4",
     "picocolors": "^1.1.1"
   }
