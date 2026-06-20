@@ -1,7 +1,8 @@
 import { describe, test, expect, vi, beforeAll, beforeEach } from "vitest";
 import type { ExternalOption } from "rollup";
 import { cjsAimPlugin, defaultImportMapEndpoint, mergeExternalOptions, pluginName } from "../src/plugin-factory";
-import { ConfigEnv, createServer, ResolvedConfig, ServerHook, UserConfig, ViteDevServer, Connect } from "vite";
+import { createServer } from "vite";
+import type { ConfigEnv, ResolvedConfig, ServerHook, UserConfig, ViteDevServer, Connect } from "vite";
 import type { ServerResponse } from "http";
 import { PluginOptions } from "../src";
 
@@ -316,10 +317,6 @@ describe("cjsAimPlugin", () => {
                 const plugin = await preparePlugin({ importMapTimeout: 150, pathExceptions: [pathEx] });
                 // @ts-expect-error TS2684
                 await (plugin.configureServer as ServerHook)(devServer);
-                for (let m of devServer.middlewares.stack) {
-                    // @ts-expect-error
-                    console.log("Function:", m.handle.name === '');
-                }
                 // @ts-expect-error
                 handler = devServer.middlewares.stack.find(m => m.handle.name === '' && m.route === '')?.handle as Connect.NextHandleFunction;
                 imHandler = devServer.middlewares.stack.find(m => m.route === defaultImportMapEndpoint)?.handle as Connect.SimpleHandleFunction;
