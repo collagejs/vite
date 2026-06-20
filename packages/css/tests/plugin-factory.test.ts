@@ -783,51 +783,45 @@ describe('pluginFactory', () => {
         const entry = bundle['A.js'];
         expect(entry.code).to.equal(projectId);
     });
-    it("Should throw an error if the specified project ID is not a string.", async () => {
-        // Arrange.
-        const projectId = 12345 as unknown as string;
-
-        // Act.
-        const act = async () => await pluginFactory(readPkgJsonFile)({ serverPort: 4444, projectId });
-
-        // Assert.
-        await expect(act).rejects.toThrow();
-    });
-    it("Should throw an error if the project ID defaults to package.json's name but that name is not a string.", async () => {
-        // Arrange.
-        const readFile = ((fileName: string) => {
-            if (fileName === './package.json') {
-                return Promise.resolve(JSON.stringify({ name: 12345 }));
-            }
-            return Promise.resolve('');
-        }) as Parameters<typeof pluginFactory>[0];
-
-        // Act.
-        const act = async () => await pluginFactory(readFile)({ serverPort: 4444 });
-
-        // Assert.
-        await expect(act).rejects.toThrow();
-    });
-    it("Should throw an error if the project ID is an empty string.", async () => {
-        // Arrange.
-        const projectId = '';
-
-        // Act.
-        const act = async () => await pluginFactory(readPkgJsonFile)({ serverPort: 4444, projectId });
-
-        // Assert.
-        await expect(act).rejects.toThrow();
-    });
-    it("Should throw an error if the project ID contains slashes.", async () => {
-        // Arrange.
-        const projectId = 'invalid/project';
-
-        // Act.
-        const act = async () => await pluginFactory(readPkgJsonFile)({ serverPort: 4444, projectId });
-
-        // Assert.
-        await expect(act).rejects.toThrow();
-    });
+    const projectIdTestData = [
+        {
+            value: 12345,
+            text: 'not a string'
+        },
+        {
+            value: '',
+            text: 'an empty string'
+        },
+        {
+            value: 'some/id',
+            text: 'a string containing slashes'
+        },
+    ]
+    for (let tc of projectIdTestData) {
+        it(`Should throw an error if the specified project ID is ${tc.text}.`, async () => {
+            // Act.
+            // @ts-expect-error TS2322
+            const act = async () => await pluginFactory(readPkgJsonFile)({ serverPort: 4444, projectId: tc.value });
+    
+            // Assert.
+            await expect(act).rejects.toThrow();
+        });
+        it(`Should throw an error if the project ID defaults to package.json's name but that name is ${tc.text}.`, async () => {
+            // Arrange.
+            const readFile = ((fileName: string) => {
+                if (fileName === './package.json') {
+                    return Promise.resolve(JSON.stringify({ name: tc.value }));
+                }
+                return Promise.resolve('');
+            }) as Parameters<typeof pluginFactory>[0];
+    
+            // Act.
+            const act = async () => await pluginFactory(readFile)({ serverPort: 4444 });
+    
+            // Assert.
+            await expect(act).rejects.toThrow();
+        });
+    }
     const spaEntryPointsTest = async (expects: Record<string, string>, inputs?: string | string[]) => {
         // Arrange.
         const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444, entryPoints: inputs }))[0];
