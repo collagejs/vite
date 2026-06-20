@@ -1,9 +1,10 @@
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
-import { pluginFactory } from '../src/plugin-factory.js';
+import { describe, it, expect } from 'vitest';
+import { defaultBuildImportMap, defaultDevImportMap, pluginFactory } from '../src/plugin-factory.js';
 import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, MinimalPluginContextWithoutEnvironment, UserConfig } from 'vite';
-import type { CollageJsImPluginOptions, ImoUiOption, ImoUiVariant, ImportMap, ImportMapsOption } from "../src/types.js";
+import type { CollageJsImPluginOptions, ImportMapsOption } from "../src/types.js";
 import type { PathLike } from 'fs';
+import type { ImportMap } from '@collagejs/importmap';
+import { ImoUiOptions } from '@collagejs/imo';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 
@@ -51,7 +52,7 @@ function asHandlerDef(handler: unknown) {
 describe('pluginFactory', () => {
     const configTest = async (viteCmd: ConfigEnv['command']) => {
         // Assert.
-        const plugIn = pluginFactory(readPkgJsonFile)();
+        const plugIn = (await pluginFactory(readPkgJsonFile)())[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
 
         // Act.
@@ -67,7 +68,7 @@ describe('pluginFactory', () => {
         // Arrange.
         const fileExists = () => false;
         const readFile = (() => Promise.reject()) as Parameters<typeof pluginFactory>[0];
-        const plugin = pluginFactory(readFile, fileExists)();
+        const plugin = (await pluginFactory(readFile, fileExists)())[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -110,7 +111,7 @@ describe('pluginFactory', () => {
             }
             return Promise.resolve(JSON.stringify(importMap));
         }) as Parameters<typeof pluginFactory>[0];
-        const plugin = pluginFactory(readFile, fileExists)();
+        const plugin = (await pluginFactory(readFile, fileExists)())[0];
         const env: ConfigEnv = { command: 'build', mode: 'production' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -140,7 +141,8 @@ describe('pluginFactory', () => {
                 pickyModule: {
                     '@a/b': 'ef'
                 }
-            }
+            },
+            integrity: {}
         };
         let fileRead = false;
         let fileReadCount = 0;
@@ -151,7 +153,7 @@ describe('pluginFactory', () => {
             ++fileReadCount;
             return Promise.resolve(JSON.stringify(importMap));
         }) as Parameters<typeof pluginFactory>[0];
-        const plugin = pluginFactory(readFile, fileExists)();
+        const plugin = (await pluginFactory(readFile, fileExists)())[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -177,15 +179,15 @@ describe('pluginFactory', () => {
     };
     const defaultImportMapTestData: { fileName: string, viteCmd: ConfigEnv['command'] }[] = [
         {
-            fileName: 'src/importMap.dev.json',
+            fileName: defaultDevImportMap,
             viteCmd: 'serve'
         },
         {
-            fileName: 'src/importMap.json',
+            fileName: defaultBuildImportMap,
             viteCmd: 'serve'
         },
         {
-            fileName: 'src/importMap.json',
+            fileName: defaultBuildImportMap,
             viteCmd: 'build'
         }
     ];
@@ -204,7 +206,8 @@ describe('pluginFactory', () => {
                 pickyModule: {
                     '@a/b': 'ef'
                 }
-            }
+            },
+            integrity: {}
         };
         let fileRead = false;
         let fileReadCount = 0;
@@ -217,7 +220,7 @@ describe('pluginFactory', () => {
         }) as Parameters<typeof pluginFactory>[0];
         const pluginOptions: CollageJsImPluginOptions = { importMaps: {} };
         pluginOptions.importMaps![propertyName] = fileName;
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+        const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -256,6 +259,7 @@ describe('pluginFactory', () => {
     }
     const importMapTestMultiple = async (map1: ImportMap, map2: ImportMap, expectedMap: ImportMap, propertyName: Exclude<keyof ImportMapsOption, 'type'>, viteCmd: ConfigEnv['command']) => {
         // Arrange.
+        expectedMap.integrity = {};
         const fileNames = ['A.json', 'B.json'];
         const fileExists = (x: PathLike) => fileNames.includes(x as string);
         const importMaps: Record<string, ImportMap> = {
@@ -273,7 +277,7 @@ describe('pluginFactory', () => {
         }) as Parameters<typeof pluginFactory>[0];
         const pluginOptions: CollageJsImPluginOptions = { importMaps: {} };
         pluginOptions.importMaps![propertyName] = fileNames;
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+        const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -366,7 +370,7 @@ describe('pluginFactory', () => {
         it(`Should pick the contents of all import maps specified in the "importMaps.${tc.propertyName}" configuration property on ${tc.viteCmd}.`,
             () => importMapTestMultiple(tc.map1, tc.map2, tc.expectedMap, tc.propertyName, tc.viteCmd));
     }
-    const importMapTypeTest = async (importMapType: Exclude<ImportMapsOption['type'], undefined>, viteCmd: ConfigEnv['command']) => {
+    const importMapTypeTest = async (viteCmd: ConfigEnv['command']) => {
         const fileExists = () => true;
         const importMap = {
             imports: {
@@ -380,8 +384,7 @@ describe('pluginFactory', () => {
         };
         const readFile = ((_x: string) => Promise.resolve(JSON.stringify(importMap))) as Parameters<typeof pluginFactory>[0];
         const pluginOptions: CollageJsImPluginOptions = { importMaps: {} };
-        pluginOptions.importMaps!.type = importMapType;
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+        const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -397,22 +400,14 @@ describe('pluginFactory', () => {
             expect(firstTag).to.not.equal(undefined);
             expect(firstTag!.tag).to.equal('script');
             expect(firstTag!.attrs).to.not.equal(undefined);
-            expect(firstTag!.attrs!.type).to.equal(importMapType);
+            expect(firstTag!.attrs!.type).to.equal('overridable-importmap');
         }
         else {
             throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
         }
     };
-    const importMapTypeTestData: Exclude<ImportMapsOption['type'], undefined>[] = [
-        'importmap',
-        'importmap-shim',
-        'overridable-importmap',
-        'systemjs-importmap'
-    ];
     for (let cmd of viteCommands) {
-        for (let t of importMapTypeTestData) {
-            it(`Should set the import map type in the injected script tag to ${t} on ${cmd}.`, () => importMapTypeTest(t, cmd));
-        }
+        it(`Should set the import map type in the injected script tag to "overridable-importmap" on ${cmd}.`, () => importMapTypeTest(cmd));
     }
     const defaultImportMapTypeTest = async (viteCmd: ConfigEnv['command']) => {
         const fileExists = () => true;
@@ -427,7 +422,7 @@ describe('pluginFactory', () => {
             }
         };
         const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
-        const plugin = pluginFactory(readFile, fileExists)();
+        const plugin = (await pluginFactory(readFile, fileExists)())[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -457,7 +452,7 @@ describe('pluginFactory', () => {
         const readFile = (() => {
             throw new Error('Not implemented');
         }) as Parameters<typeof pluginFactory>[0];
-        const plugin = pluginFactory(readFile, fileExists)();
+        const plugin = (await pluginFactory(readFile, fileExists)())[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
 
@@ -483,7 +478,7 @@ describe('pluginFactory', () => {
             }
         };
         const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
-        const plugin = pluginFactory(readFile, fileExists)();
+        const plugin = (await pluginFactory(readFile, fileExists)())[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -495,7 +490,7 @@ describe('pluginFactory', () => {
         expect(xForm).to.not.equal(null);
         expect(xForm).to.not.equal(undefined);
         if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-            const imoTag = searchForScriptTag(xForm.tags, t => ((t.attrs!.src as string) ?? '').includes('import-map-overrides@latest'));
+            const imoTag = searchForScriptTag(xForm.tags, t => ((t.attrs!.src as string) ?? '').includes('@collagejs/imo@latest'));
             expect(imoTag).to.not.equal(undefined);
         }
         else {
@@ -503,7 +498,7 @@ describe('pluginFactory', () => {
         }
     }
     for (let cmd of viteCommands) {
-        it(`Should include a script tag for "import-map-overrides" if there are import maps and the "imo" configuration property is not specified on ${cmd}.`, () => imoOnImportMapTest(cmd));
+        it(`Should include a script tag for "@collagejs/imo" if there are import maps and the "imo" configuration property is not specified on ${cmd}.`, () => imoOnImportMapTest(cmd));
     }
     const imoVersionTest = async (viteCmd: ConfigEnv['command']) => {
         const fileExists = () => true;
@@ -520,7 +515,7 @@ describe('pluginFactory', () => {
         const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
         const imoVersion = '2.4.2'
         const pluginOptions: CollageJsImPluginOptions = { imo: imoVersion };
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+        const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -532,7 +527,7 @@ describe('pluginFactory', () => {
         expect(xForm).to.not.equal(null);
         expect(xForm).to.not.equal(undefined);
         if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-            const imoTag = searchForScriptTag(xForm.tags, t => ((t.attrs!.src as string) ?? '').includes(`import-map-overrides@${imoVersion}`));
+            const imoTag = searchForScriptTag(xForm.tags, t => ((t.attrs!.src as string) ?? '').includes(`@collagejs/imo@${imoVersion}`));
             expect(imoTag).to.not.equal(undefined);
         }
         else {
@@ -540,7 +535,7 @@ describe('pluginFactory', () => {
         }
     }
     for (let cmd of viteCommands) {
-        it(`Should include a script tag for "import-map-overrides" using the version specified in the "imo" configuration property on ${cmd}.`, () => imoVersionTest(cmd));
+        it(`Should include a script tag for "@collagejs/imo" using the version specified in the "imo" configuration property on ${cmd}.`, () => imoVersionTest(cmd));
     }
     const imoFunctionTest = async (viteCmd: ConfigEnv['command']) => {
         const fileExists = () => true;
@@ -555,9 +550,9 @@ describe('pluginFactory', () => {
             }
         };
         const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
-        const imoUrl = 'https://cdn.example.com/import-map-overrides@3.0.1';
+        const imoUrl = 'https://cdn.example.com/@collagejs/imo@1.0.0';
         const pluginOptions: CollageJsImPluginOptions = { imo: () => imoUrl };
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+        const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -577,7 +572,7 @@ describe('pluginFactory', () => {
         }
     }
     for (let cmd of viteCommands) {
-        it(`Should include a script tag for "import-map-overrides" using the the URL returned by the function in the "imo" configuration property on ${cmd}.`, () => imoFunctionTest(cmd));
+        it(`Should include a script tag for "@collagejs/imo" using the the URL returned by the function in the "imo" configuration property on ${cmd}.`, () => imoFunctionTest(cmd));
     }
     const imoBooleanTest = async (viteCmd: ConfigEnv['command'], imoValue: boolean) => {
         const fileExists = () => true;
@@ -593,7 +588,7 @@ describe('pluginFactory', () => {
         };
         const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
         const pluginOptions: CollageJsImPluginOptions = { imo: imoValue };
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+        const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -605,7 +600,7 @@ describe('pluginFactory', () => {
         expect(xForm).to.not.equal(null);
         expect(xForm).to.not.equal(undefined);
         if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-            const imoTag = searchForScriptTag(xForm.tags, t => ((t.attrs!.src as string) ?? '').includes('import-map-overrides@latest'));
+            const imoTag = searchForScriptTag(xForm.tags, t => ((t.attrs!.src as string) ?? '').includes('@collagejs/imo@latest'));
             if (imoValue) {
                 expect(imoTag).to.not.equal(undefined);
             }
@@ -629,7 +624,7 @@ describe('pluginFactory', () => {
     ];
     for (let tc of imoBooleanTestData) {
         for (let cmd of viteCommands) {
-            it(`Should ${tc.includesOrNot}include the "import-map-overrides" tag if the "imo" configuration property is set to "${tc.imoValue}" on ${cmd}.`, () => imoBooleanTest(cmd, tc.imoValue));
+            it(`Should ${tc.includesOrNot}include the "@collagejs/imo" tag if the "imo" configuration property is set to "${tc.imoValue}" on ${cmd}.`, () => imoBooleanTest(cmd, tc.imoValue));
         }
     }
     const noImoOnNoImportMapTest = async (viteCmd: ConfigEnv['command'], imoValue: CollageJsImPluginOptions['imo']) => {
@@ -638,7 +633,7 @@ describe('pluginFactory', () => {
             throw new Error('Not implemented.');
         }) as Parameters<typeof pluginFactory>[0];
         const pluginOptions: CollageJsImPluginOptions = { imo: imoValue };
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+        const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -654,8 +649,8 @@ describe('pluginFactory', () => {
                 typeof imoValue === 'function' ?
                     (t.attrs!.src as string) === imoValue()
                     : (typeof imoValue === 'string' ?
-                        ((t.attrs!.src as string) ?? '').includes(`import-map-overrides@${imoValue}`) :
-                        ((t.attrs!.src as string) ?? '').includes('import-map-overrides@latest')));
+                        ((t.attrs!.src as string) ?? '').includes(`@collagejs/imo@${imoValue}`) :
+                        ((t.attrs!.src as string) ?? '').includes('@collagejs/imo@latest')));
             expect(imoTag).to.equal(undefined);
         }
         else {
@@ -672,51 +667,15 @@ describe('pluginFactory', () => {
             valueDesc: 'a version number'
         },
         {
-            imoValue: () => 'http://cdn.example.com/import-map-overrides@3.0.1',
+            imoValue: () => 'http://cdn.example.com/@collagejs/imo@1.0.0',
             valueDesc: 'a function'
         }
     ];
     for (let tc of noImoOnNoImportMapTestData) {
         for (let cmd of viteCommands) {
-            it(`Should not include "import-map-overrides" if no import map is available on ${cmd}, even if "imo" is set to ${tc.valueDesc} on ${cmd}.`, () => noImoOnNoImportMapTest(cmd, tc.imoValue));
+            it(`Should not include "@collagejs/imo" if no import map is available on ${cmd}, even if "imo" is set to ${tc.valueDesc} on ${cmd}.`, () => noImoOnNoImportMapTest(cmd, tc.imoValue));
         }
     }
-    // const imoUiTest = async (viteCmd: ConfigEnv['command'], imoUiValue: CollageJsImPluginOptions['imoUi'], expectedToExist: boolean) => {
-    //     const fileExists = () => true;
-    //     const importMap = {
-    //         imports: {
-    //             '@a/b': 'cd'
-    //         },
-    //         scopes: {
-    //             pickyModule: {
-    //                 '@a/b': 'ef'
-    //             }
-    //         }
-    //     };
-    //     const readFile = () => {
-    //         throw new Error('Not implemented.');
-    //     };
-    //     const pluginOptions: CollageJsImPluginOptions = { imoUi: imoUiValue };
-    //     const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
-    //     const env: ConfigEnv = { command: viteCmd, mode: 'development' };
-    //     await (plugin.config as ConfigHandler)({}, env);
-    //     const ctx = { path: '', filename: '' };
-
-    //     // Act.
-    //     const xForm = await asHandlerDef(plugin.transformIndexHtml).handler('', ctx);
-
-    //     // Assert.
-    //     expect(xForm).to.not.equal(null);
-    //     expect(xForm).to.not.equal(undefined);
-    //     if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-    //         const imoTag = searchTag(xForm.tags, 'import-map-overrides-');
-    //         const assertFn = expectedToExist ? () => expect(imoTag).to.not.equal(undefined) : () => expect(imoTag).to.equal(undefined);
-    //         assertFn();
-    //     }
-    //     else {
-    //         throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
-    //     }
-    // };
     const imoUiDefaultsTest = async (viteCmd: ConfigEnv['command'], importMapExists: boolean) => {
         const fileExists = () => importMapExists;
         const importMap = {
@@ -732,7 +691,7 @@ describe('pluginFactory', () => {
         const readFile = (() => {
             return Promise.resolve(JSON.stringify(importMap));
         }) as unknown as Parameters<typeof pluginFactory>[0];
-        const plugin = pluginFactory(readFile, fileExists)();
+        const plugin = (await pluginFactory(readFile, fileExists)())[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -744,7 +703,7 @@ describe('pluginFactory', () => {
         expect(xForm).to.not.equal(null);
         expect(xForm).to.not.equal(undefined);
         if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-            const imoUiTag = searchTag(xForm.tags, 'import-map-overrides-full');
+            const imoUiTag = searchTag(xForm.tags, 'script', { type: 'module' }, t => t.injectTo === 'body' && (t.attrs?.src?.toString().endsWith('imo-ui.js') ?? false));
             const assertFn = importMapExists ? () => expect(imoUiTag).to.not.equal(undefined) : () => expect(imoUiTag).to.equal(undefined);
             assertFn();
         }
@@ -766,10 +725,10 @@ describe('pluginFactory', () => {
     ]
     for (let cmd of viteCommands) {
         for (let tc of imoUiDefaultsTestData) {
-            it(`Should ${tc.text1}inlcude the "import-map-overrides" UI element when the "imoUi" property is not explicitly set on ${cmd} and there are ${tc.text2}import maps.`, () => imoUiDefaultsTest(cmd, tc.importMap));
+            it(`Should ${tc.text1}include the "@collagejs/imo" UI script when the "imoUi" property is not explicitly set on ${cmd} and there are ${tc.text2}import maps.`, () => imoUiDefaultsTest(cmd, tc.importMap));
         }
     }
-    const imoUiIncludeTest = async (viteCmd: ConfigEnv['command'], imoUiOption: ImoUiVariant, variantName: string, expectToExist: boolean) => {
+    const imoUiIncludeTest = async (viteCmd: ConfigEnv['command'], imoUi: boolean | ImoUiOptions | undefined, expectToExist: boolean) => {
         const fileExists = () => true;
         const importMap = {
             imports: {
@@ -784,8 +743,8 @@ describe('pluginFactory', () => {
         const readFile = (() => {
             return Promise.resolve(JSON.stringify(importMap));
         }) as unknown as Parameters<typeof pluginFactory>[0];
-        const pluginOptions: CollageJsImPluginOptions = { imoUi: imoUiOption };
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+        const pluginOptions: CollageJsImPluginOptions = { imoUi };
+        const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
         const ctx = { path: '', filename: '' };
@@ -797,7 +756,7 @@ describe('pluginFactory', () => {
         expect(xForm).to.not.equal(null);
         expect(xForm).to.not.equal(undefined);
         if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-            const imoUiTag = searchTag(xForm.tags, `import-map-overrides-${variantName}`);
+            const imoUiTag = searchTag(xForm.tags, `script`, {}, t => t.injectTo === 'body' && (t?.attrs?.['src']?.toString().endsWith('/imo-ui.js') ?? false));
             const assertFn = expectToExist ? () => expect(imoUiTag).to.not.equal(undefined) : () => expect(imoUiTag).to.equal(undefined);
             assertFn();
         }
@@ -805,215 +764,15 @@ describe('pluginFactory', () => {
             throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
         }
     };
-    const imoUiIncludeTestData: { imoUiOption: ImoUiVariant, variantName: string }[] = [
-        {
-            imoUiOption: true,
-            variantName: 'full'
-        }
+    const imoUiIncludeTestData: (boolean | ImoUiOptions | undefined)[] = [
+        undefined,
+        true,
+        {}
     ];
     for (let cmd of viteCommands) {
         for (let tc of imoUiIncludeTestData) {
-            it(`Should include the "import-map-overrides-${tc.variantName}" UI element when the "imoUi" property is set to ${tc.imoUiOption} on ${cmd}.`, () => imoUiIncludeTest(cmd, tc.imoUiOption, tc.variantName, true));
+            it(`Should include "@collagejs/imo"'s UI script when the "imoUi" property is set to ${tc} on ${cmd}.`, () => imoUiIncludeTest(cmd, tc, true));
         }
-    }
-    for (let cmd of viteCommands) {
-        it(`Should not include the "import-map-overrides" UI element when the "imoUi" property is set to false on ${cmd}.`, () => imoUiIncludeTest(cmd, false, '', false));
-    }
-    const imoUiNoAttrsTest = async (viteCmd: ConfigEnv['command'], imoUiOption: ImoUiVariant) => {
-        const fileExists = () => true;
-        const importMap = {
-            imports: {
-                '@a/b': 'cd'
-            },
-            scopes: {
-                pickyModule: {
-                    '@a/b': 'ef'
-                }
-            }
-        };
-        const readFile = (() => {
-            return Promise.resolve(JSON.stringify(importMap));
-        }) as unknown as Parameters<typeof pluginFactory>[0];
-        const pluginOptions: CollageJsImPluginOptions = { imoUi: imoUiOption };
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
-        const env: ConfigEnv = { command: viteCmd, mode: 'development' };
-        await (plugin.config as ConfigHandler)({}, env);
-        const ctx = { path: '', filename: '' };
-
-        // Act.
-        const xForm = await asHandlerDef(plugin.transformIndexHtml).handler('', ctx);
-
-        // Assert.
-        expect(xForm).to.not.equal(null);
-        expect(xForm).to.not.equal(undefined);
-        if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-            const imoUiTag = searchTag(xForm.tags, `import-map-overrides-${imoUiOption}`);
-            expect(imoUiTag).to.not.equal(undefined);
-            expect(Object.keys(imoUiTag?.attrs ?? {})).to.have.lengthOf(0);
-        }
-        else {
-            throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
-        }
-    };
-    const imoUiNoAttrsTestData: ImoUiVariant[] = [
-        'list',
-        'popup'
-    ];
-    for (let cmd of viteCommands) {
-        for (let tc of imoUiNoAttrsTestData) {
-            it(`Should not include any attributes in the "import-map-overrides" UI element when the UI variant is ${tc} on ${cmd}.`, () => imoUiNoAttrsTest(cmd, tc));
-        }
-    }
-    const imoUiAttrsTest = async (viteCmd: ConfigEnv['command']) => {
-        const fileExists = () => true;
-        const importMap = {
-            imports: {
-                '@a/b': 'cd'
-            },
-            scopes: {
-                pickyModule: {
-                    '@a/b': 'ef'
-                }
-            }
-        };
-        const readFile = (() => {
-            return Promise.resolve(JSON.stringify(importMap));
-        }) as unknown as Parameters<typeof pluginFactory>[0];
-        const pluginOptions: CollageJsImPluginOptions = { imoUi: 'full' };
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
-        const env: ConfigEnv = { command: viteCmd, mode: 'development' };
-        await (plugin.config as ConfigHandler)({}, env);
-        const ctx = { path: '', filename: '' };
-
-        // Act.
-        const xForm = await asHandlerDef(plugin.transformIndexHtml).handler('', ctx);
-
-        // Assert.
-        expect(xForm).to.not.equal(null);
-        expect(xForm).to.not.equal(undefined);
-        if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-            const imoUiTag = searchTag(xForm.tags, 'import-map-overrides-full');
-            expect(imoUiTag).to.not.equal(undefined);
-            expect(imoUiTag!.attrs!['trigger-position']).to.equal('bottom-right');
-            expect(imoUiTag!.attrs!['show-when-local-storage']).to.equal('imo-ui');
-        }
-        else {
-            throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
-        }
-    };
-    for (let cmd of viteCommands) {
-        it(`Should include the "trigger-position" and "show-when-local-storage" attributes in the "import-map-overrides-full" UI element with the defaults "bottom-right" and "imo-ui" on ${cmd}.`, () => imoUiAttrsTest(cmd));
-    }
-    const imoUiTriggerPosTest = async (viteCmd: ConfigEnv['command'], buttonPos: ImoUiOption['buttonPos']) => {
-        const fileExists = () => true;
-        const importMap = {
-            imports: {
-                '@a/b': 'cd'
-            },
-            scopes: {
-                pickyModule: {
-                    '@a/b': 'ef'
-                }
-            }
-        };
-        const readFile = (() => {
-            return Promise.resolve(JSON.stringify(importMap));
-        }) as unknown as Parameters<typeof pluginFactory>[0];
-        const pluginOptions: CollageJsImPluginOptions = { imoUi: { buttonPos } };
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
-        const env: ConfigEnv = { command: viteCmd, mode: 'development' };
-        await (plugin.config as ConfigHandler)({}, env);
-        const ctx = { path: '', filename: '' };
-
-        // Act.
-        const xForm = await asHandlerDef(plugin.transformIndexHtml).handler('', ctx);
-
-        // Assert.
-        expect(xForm).to.not.equal(null);
-        expect(xForm).to.not.equal(undefined);
-        if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-            const imoUiTag = searchTag(xForm.tags, 'import-map-overrides-full');
-            expect(imoUiTag).to.not.equal(undefined);
-            expect(imoUiTag!.attrs!['trigger-position']).to.equal(buttonPos);
-        }
-        else {
-            throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
-        }
-    };
-    const imoUiTriggerPosTestData: ImoUiOption['buttonPos'][] = [
-        'bottom-left',
-        'bottom-right',
-        'top-left',
-        'top-right'
-    ];
-    for (let cmd of viteCommands) {
-        for (let tc of imoUiTriggerPosTestData) {
-            it(`Should set the "trigger-position" attribute value to ${tc} when the "imoUi.buttonPos" property is set to ${tc} on ${cmd}.`, () => imoUiTriggerPosTest(cmd, tc));
-        }
-    }
-    const imoUiLsKeyTest = async (viteCmd: ConfigEnv['command'], localStorageKey: ImoUiOption['localStorageKey'], expectAtt: boolean, expectedAttrValue: string | undefined) => {
-        const fileExists = () => true;
-        const importMap = {
-            imports: {
-                '@a/b': 'cd'
-            },
-            scopes: {
-                pickyModule: {
-                    '@a/b': 'ef'
-                }
-            }
-        };
-        const readFile = (() => {
-            return Promise.resolve(JSON.stringify(importMap));
-        }) as unknown as Parameters<typeof pluginFactory>[0];
-        const pluginOptions: CollageJsImPluginOptions = { imoUi: {} };
-        if (localStorageKey !== undefined) {
-            (pluginOptions.imoUi as ImoUiOption).localStorageKey = localStorageKey;
-        }
-        const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
-        const env: ConfigEnv = { command: viteCmd, mode: 'development' };
-        await (plugin.config as ConfigHandler)({}, env);
-        const ctx = { path: '', filename: '' };
-
-        // Act.
-        const xForm = await asHandlerDef(plugin.transformIndexHtml).handler('', ctx);
-
-        // Assert.
-        expect(xForm).to.not.equal(null);
-        expect(xForm).to.not.equal(undefined);
-        if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-            const imoUiTag = searchTag(xForm.tags, 'import-map-overrides-full');
-            expect(imoUiTag).to.not.equal(undefined);
-            if (expectAtt) {
-                expect(imoUiTag!.attrs!['show-when-local-storage']).to.equal(expectedAttrValue);
-            }
-            else {
-                expect(Object.keys(imoUiTag!.attrs!)).to.not.include('show-when-local-storage');
-            }
-        }
-        else {
-            throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
-        }
-    }
-    for (let cmd of viteCommands) {
-        [
-            {
-                localStorageKey: 'customLsValue',
-                expectAtt: true,
-                expectedAttrValue: 'customLsValue'
-            },
-            {
-                localStorageKey: true as const,
-                expectAtt: false,
-                expectedAttrValue: undefined
-            },
-            {
-                localStorageKey: undefined,
-                expectAtt: true,
-                expectedAttrValue: 'imo-ui'
-            }
-        ].forEach(tc => {
-            it(`Should ${tc.expectAtt ? 'set' : 'not set'} the "show-when-local-storage" attribute value ${tc.expectAtt ? 'to "' + tc.expectedAttrValue + '"' : ''} when the "imoUi.localStorageKey" property is set to '${tc.localStorageKey}' on ${cmd}.`, () => imoUiLsKeyTest(cmd, tc.localStorageKey, tc.expectAtt, tc.expectedAttrValue));
-        });
+        it(`Should not include "@collagejs/imo"' UI script when the "imoUi" property is set to false on ${cmd}.`, () => imoUiIncludeTest(cmd, false, false));
     }
 });

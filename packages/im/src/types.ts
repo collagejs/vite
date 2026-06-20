@@ -1,22 +1,9 @@
-/**
- * Defines how import maps look like.
- */
-export type ImportMap = {
-    imports?: Record<string, string>;
-    scopes?: Record<string, Record<string, string>>;
-};
+import type { ImPostingOptions, ImoUiOptions } from "@collagejs/imo";
 
 /**
  * Defines the possible options for import maps in root projects.
  */
 export type ImportMapsOption = {
-    /**
-     * Type of importmap.  The valid values are `'importmap'`, `'overridable-importmap'`, `'systemjs-importmap'` 
-     * and `'importmap-shim'`.
-     * 
-     * **IMPORTANT**:  Keeping this for completeness, but *CollageJS* only officially supports native ES modules.
-     */
-    type?: 'importmap' | 'overridable-importmap' | 'systemjs-importmap' | 'importmap-shim';
     /**
      * File name or array of file names of the import map or maps to be used while developing.
      */
@@ -28,53 +15,54 @@ export type ImportMapsOption = {
 };
 
 /**
- * Defines the list of possible variants for the import-map-overrides user interface.  The Boolean value `true` is 
- * equivalent to the string `'full'`.
+ * Defines the various ways the source for `@collagejs/imo` can be specified.
  */
-export type ImoUiVariant = boolean | 'full' | 'popup' | 'list';
+export type ImoSource = boolean | string | (() => string);
 
 /**
- * Defines the complete set of options available to configure the import-map-overrides user interface.
+ * Defines the full set of options that can be set to configure the behavior of `@collagejs/imo`'s import map-overriding 
+ * script.
  */
-export type ImoUiOption = {
+export type ImoSpec = {
     /**
-     * Desired variant of the user interface.  If not specified, the default value is `'full'`.
+     * Specifies the source of `@collagejs/imo`.
      */
-    variant?: ImoUiVariant | undefined;
-    /**
-     * Desired button position.  If not specified, the default value is `'bottom-right'`.
-     */
-    buttonPos?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | undefined;
-    /**
-     * Local storage key used to control the visibility of the import-map-overrides user interface.  If not 
-     * specified, the defualt value is `'imo-ui'`.
-     * 
-     * Set it to `true` to make the IMO UI always visible.
-     */
-    localStorageKey?: string | true | undefined;
+    source: ImoSource;
+    options?: ImPostingOptions | undefined;
 };
 
 /**
- * Defines the plugin options for Vite projects that are single-spa root projects (root configs).
+ * Defines the plugin options for Vite projects that are CollageJS root projects (root configs).
  */
 export type CollageJsImPluginOptions = {
     /**
-     * Importmap options.
+     * Specifies the type and import map files to inject into the HTML page's HEAD element.
+     * @default { build: "importmap.json" }
      */
     importMaps?: ImportMapsOption | undefined;
     /**
-     * Controls the inclusion of the import-map-overrides package.  If set to `true`, or not specified at all, 
-     * import-map-overrides will be included using the package's latest version.  In order to include a specific 
-     * version, specify the version as a string (for example, `'2.4.2'`).
+     * Controls the inclusion of the `@collagejs/imo` package.  If set to `true`, or not specified at all, 
+     * `@collagejs/imo` will be included using the package's latest version.  In order to include a specific 
+     * version, specify the version as a string (for example, `'1.0.0'`).
      * 
      * The package is served using the JSDelivr network; to use a different source, specify a function that 
      * returns the package's full URL as a string.
+     * 
+     * To specify import map posting options, specify this option as a POJO object.  Refer to the package's
+     * documentation for additional information.
+     * @default true
      */
-    imo?: boolean | string | (() => string) | undefined;
+    imo?: ImoSource | ImoSpec | undefined;
     /**
-     * Controls the inclusion of the import-map-overrides user interface.  Refer to the user interface 
-     * documentation for the import-map-overrides package for full details.  The user interface is added unless 
-     * explicitly deactivated in configuration.
+     * Controls the inclusion of the @collagejs/imo user interface.  Refer to the user interface documentation for the 
+     * explanation on the various options that can be specified.
+     * 
+     * @default true
      */
-    imoUi?: ImoUiVariant | ImoUiOption | undefined;
+    imoUi?: boolean | ImoUiOptions;
+    /**
+     * Controls the inclusion of the @collagejs/vite-aim plug-in.  When `false`, the AIM plug-in is not injected.
+     * @default true
+     */
+    aim?: boolean;
 };

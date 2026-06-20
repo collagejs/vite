@@ -1,10 +1,9 @@
-import { expect } from "chai";
-import { describe, it } from "mocha";
+import { describe, it, expect } from "vitest";
 
 describe("index", () => {
     it("Should only export the expected objects.", async () => {
         const expectedExports = [
-            "collageJsImPlugin"
+            "cjsImPlugin"
         ];
         const module = await import("../src/index.js");
         const actualExports = Object.keys(module);

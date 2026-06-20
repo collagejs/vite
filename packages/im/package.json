@@ -1,7 +1,7 @@
 {
   "name": "@collagejs/vite-im",
   "version": "0.1.0",
-  "description": "Vite plug-in that injects an import map and import-map-overrides to the project's HTML page",
+  "description": "Vite plug-in that injects an import map and @collagejs/imo to the project's HTML page",
   "keywords": [
     "importmap",
     "vite",
@@ -36,7 +36,7 @@
     "dist"
   ],
   "scripts": {
-    "test": "ts-mocha -n loader=ts-node/esm -p ./tsconfig.json ./tests/**/*.test.ts",
+    "test": "vitest",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "build": "tsc && publint",
     "type-check": "tsc --noEmit"
@@ -45,14 +45,15 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
-    "@types/chai": "^5.2.3",
-    "@types/mocha": "^10.0.10",
+    "@collagejs/imo": "^0.2.1",
     "@types/node": "^25.0.3",
-    "chai": "^6.2.1",
     "publint": "^0.3.16",
     "rimraf": "^6.1.2",
-    "ts-mocha": "^11.1.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "@collagejs/vite-aim": "0.x || 1.x",
+    "wj-config": "^4.0.0-beta.0 || ^4"
   }
 }

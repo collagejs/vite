@@ -1,6 +1,25 @@
 import { promises as fs, existsSync } from 'fs';
-import type { HtmlTagDescriptor, Plugin, ConfigEnv } from 'vite';
-import type { CollageJsImPluginOptions, ImportMap, ImoUiOption } from './types.js';
+import type { HtmlTagDescriptor, ConfigEnv, Plugin } from 'vite';
+import type { CollageJsImPluginOptions, ImportMapsOption } from './types.js';
+import type { ImportMap } from "@collagejs/importmap";
+import { cjsAimPlugin, PluginOptions } from '@collagejs/vite-aim';
+import wjConfig from 'wj-config';
+import { imoUiOptionsId, imPostingOptionsId } from '@collagejs/imo/const';
+
+export const defaultDevImportMap = 'src/importMap.dev.json';
+export const defaultBuildImportMap = 'src/importMap.json';
+
+/**
+ * Default plug-in options.  The `imoUi` properties are not set so the default ones set by the `@collagejs/imo` package 
+ * enter in effect.
+ * 
+ * NOTE:  Only exported for unit testing purposes.
+ */
+export const defaultOptions = {
+    aim: true,
+    imo: true,
+    importMaps: {} as ImportMapsOption,
+};
 
 /**
  * Factory function that produces the `@collagejs/vite-im` plugin factory.  Yes, a factory of factories.
@@ -13,10 +32,10 @@ import type { CollageJsImPluginOptions, ImportMap, ImoUiOption } from './types.j
 export function pluginFactory(
     readFileFn?: typeof fs.readFile,
     fileExistsFn?: typeof existsSync
-): (options?: CollageJsImPluginOptions) => Plugin {
+): (options?: CollageJsImPluginOptions | PluginOptions, aimOptions?: PluginOptions) => Promise<[Plugin, Plugin | null]> {
     const readFile = readFileFn ?? fs.readFile;
     const fileExists = fileExistsFn ?? existsSync;
-    return (options?: CollageJsImPluginOptions) => {
+    return async (options?: CollageJsImPluginOptions | PluginOptions, aimOptions?: PluginOptions) => {
         /**
          * Set in config() and is used to preserve Vite command information.
          */
@@ -28,12 +47,12 @@ export function pluginFactory(
          * @returns An array of string values, where each value is the content of one import map file.
          */
         async function loadImportMaps(command: ConfigEnv['command']) {
-            let fileCfg = command === 'serve' ? options?.importMaps?.dev : options?.importMaps?.build;
-            const defaultFile = fileExists('src/importMap.dev.json') ? 'src/importMap.dev.json' : 'src/importMap.json';
+            let fileCfg = command === 'serve' ? imOpt.importMaps?.dev : imOpt.importMaps?.build;
+            const defaultFile = fileExists(defaultDevImportMap) ? defaultDevImportMap : defaultBuildImportMap;
             if (fileCfg === undefined || typeof fileCfg === 'string') {
                 const mapFile = command === 'serve' ?
                     (fileCfg ?? defaultFile) :
-                    (fileCfg ?? 'src/importMap.json');
+                    (fileCfg ?? defaultBuildImportMap);
                 if (!fileExists(mapFile)) {
                     return null;
                 }
@@ -45,10 +64,13 @@ export function pluginFactory(
             else {
                 const fileContents: string[] = [];
                 for (let f of fileCfg) {
+                    if (!fileExists(f)) {
+                        continue;
+                    }
                     const contents = await readFile(f, { encoding: 'utf8' }) as string;
                     fileContents.push(contents);
                 }
-                return fileContents;
+                return fileContents.length > 0 ? fileContents : null;
             }
         }
 
@@ -56,11 +78,13 @@ export function pluginFactory(
          * Builds and returns the final import map using as input the provided input maps.
          * @param maps Array of import maps that are merged together as a single map.
          */
-        function buildImportMap(maps: Required<ImportMap>[]) {
-            const importMap: Required<ImportMap> = { imports: {}, scopes: {} };
+        function buildImportMap(maps: ImportMap[]) {
+            const importMap: Required<ImportMap> = { imports: {}, scopes: {}, integrity: {} };
             for (let map of maps) {
-                for (let key of Object.keys(map.imports)) {
-                    importMap.imports[key] = map.imports[key]!;
+                if (map.imports) {
+                    for (let key of Object.keys(map.imports)) {
+                        importMap.imports[key] = map.imports[key];
+                    }
                 }
                 if (map.scopes) {
                     for (let key of Object.keys(map.scopes)) {
@@ -70,15 +94,20 @@ export function pluginFactory(
                         }
                     }
                 }
+                if (map.integrity) {
+                    for (let key of Object.keys(map.integrity)) {
+                        importMap.integrity[key] = map.integrity[key];
+                    }
+                }
             }
             return importMap;
         }
 
         /**
-         * Transforms the HTML file of projects by injecting import maps and the import-map-overrides script.
+         * Transforms the HTML file of projects by injecting import maps and the @collagejs/imo script and UI.
          * @param html HTML file content in string format.
          * @returns An `IndexHtmlTransformResult` object that includes the injected import map and the 
-         * import-map-overrides body markup.
+         * @collagejs/imo body markup.
          */
         async function rootIndexTransform(html: string) {
             const importMapContents = await loadImportMaps(viteEnv.command);
@@ -91,19 +120,22 @@ export function pluginFactory(
                 tags.push({
                     tag: 'script',
                     attrs: {
-                        type: options?.importMaps?.type ?? 'overridable-importmap',
+                        type: 'overridable-importmap',
                     },
                     children: JSON.stringify(importMap, null, 2),
                     injectTo: 'head-prepend',
                 });
             }
-            if (options?.imo !== false && importMap) {
+            if (imOpt.imo !== false && importMap) {
                 let imoVersion = 'latest';
-                if (typeof options?.imo === 'string') {
-                    imoVersion = options.imo;
+                const imoSource = typeof imOpt.imo === 'object' ?
+                    imOpt.imo.source :
+                    imOpt.imo;
+                if (typeof imoSource === 'string') {
+                    imoVersion = imoSource;
                 }
-                const imoUrl = typeof options?.imo === 'function' ?
-                    options.imo() :
+                const imoUrl = typeof imoSource === 'function' ?
+                    imoSource() :
                     `https://cdn.jsdelivr.net/npm/@collagejs/imo@${imoVersion}/dist/imo.min.js`;
                 tags.push({
                     tag: 'script',
@@ -113,37 +145,38 @@ export function pluginFactory(
                     },
                     injectTo: 'head-prepend'
                 });
-            }
-            let imoUiCfg: ImoUiOption = {
-                buttonPos: 'bottom-right',
-                localStorageKey: 'imo-ui',
-                variant: 'full'
-            };
-            if (typeof options?.imoUi === 'object') {
-                imoUiCfg = {
-                    ...imoUiCfg,
-                    ...options.imoUi
-                };
-            }
-            else if (options?.imoUi !== undefined) {
-                imoUiCfg.variant = options.imoUi;
-            }
-            if (imoUiCfg.variant && importMap) {
-                imoUiCfg.variant = imoUiCfg.variant === true ? 'full' : imoUiCfg.variant;
-                let attrs: Record<string, string | boolean | undefined> | undefined = undefined;
-                if (imoUiCfg.variant === 'full') {
-                    attrs = {
-                        'trigger-position': imoUiCfg.buttonPos,
-                    };
-                    if (imoUiCfg.localStorageKey !== true) {
-                        attrs['show-when-local-storage'] = imoUiCfg.localStorageKey
-                    }
+                if (typeof imOpt.imo === 'object' && imOpt.imo.options) {
+                    tags.push({
+                        tag: 'script',
+                        attrs: {
+                            type: 'application/json',
+                            id: imPostingOptionsId
+                        },
+                        children: JSON.stringify(imOpt.imo.options),
+                        injectTo: 'head-prepend'
+                    });
                 }
-                tags.push({
-                    tag: `import-map-overrides-${imoUiCfg.variant}`,
-                    attrs: attrs ?? {},
-                    injectTo: 'body'
-                });
+                if (imOpt.imoUi && importMap) {
+                    if (typeof imOpt.imoUi === 'object') {
+                        tags.push({
+                            tag: `script`,
+                            attrs: {
+                                type: 'application/json',
+                                id: imoUiOptionsId
+                            },
+                            children: JSON.stringify(imOpt.imoUi),
+                            injectTo: 'head'
+                        });
+                    }
+                    tags.push({
+                        tag: 'script',
+                        attrs: {
+                            type: 'module',
+                            src: imoUrl.substring(0, imoUrl.lastIndexOf('/') + 1) + 'imo-ui.js',
+                        },
+                        injectTo: 'body'
+                    });
+                }
             }
             return {
                 html,
@@ -151,7 +184,38 @@ export function pluginFactory(
             };
         }
 
-        return {
+        function isImOptions(opt: CollageJsImPluginOptions | PluginOptions | undefined): opt is CollageJsImPluginOptions {
+            if (!opt) {
+                return false;
+            }
+            return Object.hasOwn(opt, 'importMaps') ||
+                Object.hasOwn(opt, 'imo') ||
+                Object.hasOwn(opt, 'imoUi') ||
+                Object.hasOwn(opt, 'aim')
+                ;
+        }
+
+        const imOpt = await wjConfig()
+            .addObject(defaultOptions)
+            .addObject(() => Promise.resolve(options as CollageJsImPluginOptions))
+            .when(() => isImOptions(options))
+            .postMerge(cfg => {
+                if (cfg.imoUi === undefined) {
+                    cfg.imoUi = true;
+                }
+                return cfg;
+            })
+            .build();
+        const aimOpt = await wjConfig()
+            .addObject({
+                pathExceptions: ['/', 'index.html']
+            })
+            .addObject(() => Promise.resolve(aimOptions!))
+            .when(() => !!aimOptions && !isImOptions(options))
+            .addObject(() => Promise.resolve(options as PluginOptions))
+            .when(() => !isImOptions(options) && !!options)
+            .build();
+        return [{
             name: '@collagejs/vite-im',
             async config(_cfg, opts) {
                 viteEnv = opts;
@@ -163,6 +227,6 @@ export function pluginFactory(
                     return rootIndexTransform(html)
                 },
             },
-        };
+        }, imOpt?.aim === false ? null : cjsAimPlugin(aimOpt)];
     };
 };
