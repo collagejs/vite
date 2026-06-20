@@ -1,7 +1,7 @@
 {
   "name": "@collagejs/vite-aim",
   "version": "0.1.0",
-  "description": "Vite plug-in that automatically externalizes anything specified in the application's import map during serve.",
+  "description": "Vite plug-in that automatically externalizes anything specified in the application's import map",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -49,7 +49,6 @@
     "@collagejs/shared": "*",
     "@microsoft/api-extractor": "^7.58.9",
     "publint": "^0.3.16",
-    "vite": "^7.0.0",
     "vite-plugin-dts": "^5.0.2",
     "vitest": "^4.1.8"
   },
