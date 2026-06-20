@@ -1,4 +1,4 @@
-import { LogLevel } from "vite";
+import type { LogLevel } from "vite";
 import type { ExternalOption } from "rollup";
 
 /**

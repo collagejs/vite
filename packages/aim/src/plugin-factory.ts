@@ -1,4 +1,4 @@
-import { Connect, createLogger, type Logger, type Plugin, type ResolvedConfig } from 'vite';
+import { createLogger, type Connect, type Logger, type Plugin, type ResolvedConfig } from 'vite';
 import { ManualResetEvent } from '@wjfe/async-workers';
 import pc from "picocolors";
 import { fmt, showCollageBanner, ImportMap } from "@collagejs/shared";
