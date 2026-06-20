@@ -35,11 +35,13 @@ export type CollageJsCssPluginOptions = {
     serverPort: number;
     /**
      * Indicates whether the development server uses SSL (HTTPS) or not (HTTP).
+     * @default false
      */
     localhostSsl?: boolean | undefined;
     /**
      * The path to the file that exports the CollageJS factory functions, or multiple paths if the project exports 
      * factories from multiple files.
+     * @default 'src/piece.ts'
      */
     entryPoints?: string | string[] | undefined;
     /**
@@ -63,4 +65,9 @@ export type CollageJsCssPluginOptions = {
      * smart enough to respect any folders in the pattern.
      */
     assetFileNames?: string | undefined;
+    /**
+     * Controls the inclusion of the @collagejs/vite-aim plug-in.  When `false`, the AIM plug-in is not injected.
+     * @default true
+     */
+    aim?: boolean;
 } & DebuggingOptions;

@@ -1,5 +1,4 @@
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
+import { describe, it, expect } from 'vitest';
 import { pluginFactory } from '../src/plugin-factory.js';
 import path from 'path';
 import type { OutputBundle, OutputChunk, OutputOptions, PreRenderedAsset, PreserveEntrySignaturesOption } from 'rollup';
@@ -33,7 +32,7 @@ describe('pluginFactory', () => {
     it('Should default to micro-frontend configuration if type is not specified.', async () => {
         // Arrange.
         const options: CollageJsCssPluginOptions = { serverPort: 4100 };
-        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
         const env: ConfigEnv = { command: 'serve', mode: 'development' };
 
         // Act.
@@ -46,7 +45,7 @@ describe('pluginFactory', () => {
     const portTest = async (cmd: ConfigEnv['command']) => {
         // Arrange.
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
-        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
         const env: ConfigEnv = { command: cmd, mode: 'development' };
 
         // Act.
@@ -63,7 +62,7 @@ describe('pluginFactory', () => {
     const inputTest = async (inputProp: string, viteCmd: ConfigEnv['command']) => {
         // Arrange.
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
-        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
 
         // Act.
@@ -79,7 +78,7 @@ describe('pluginFactory', () => {
     const entrySignatureTest = async (viteCmd: ConfigEnv['command'], expectedPropValue: PreserveEntrySignaturesOption) => {
         // Arrange.
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
-        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
 
         // Act.
@@ -95,7 +94,7 @@ describe('pluginFactory', () => {
     const fileNamesTest = async (propName: keyof OutputOptions) => {
         // Arrange.
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
-        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
         const env: ConfigEnv = { command: 'build', mode: 'development' };
 
         // Act.
@@ -112,7 +111,7 @@ describe('pluginFactory', () => {
         // Arrange.
         const userEntryFileNames = 'custom-entry-[hash].js';
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
-        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
         const env: ConfigEnv = { command: 'build', mode: 'development' };
         const userConfig: UserConfig = {
             build: {
@@ -136,7 +135,7 @@ describe('pluginFactory', () => {
         // Arrange.
         const userAssetFileNames = 'custom-asset-[hash][extname]';
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
-        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
         const env: ConfigEnv = { command: 'build', mode: 'development' };
         const userConfig: UserConfig = {
             build: {
@@ -160,7 +159,7 @@ describe('pluginFactory', () => {
         // Arrange.
         const userEntryFileNames = 'custom-entry-[hash].js';
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
-        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
         const env: ConfigEnv = { command: 'build', mode: 'development' };
         const userConfig: UserConfig = {
             build: {
@@ -184,7 +183,7 @@ describe('pluginFactory', () => {
     const assetFileNameTest = async (pattern: string | undefined, cssExpectation: string, nonCssExpectation: string) => {
         // Arrange.
         const options: CollageJsCssPluginOptions = { serverPort: 4111, assetFileNames: pattern };
-        const plugIn = pluginFactory(readPkgJsonFile)(options);
+        const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
         const env: ConfigEnv = { command: 'build', mode: 'development' };
 
         // Act.
@@ -244,7 +243,7 @@ describe('pluginFactory', () => {
         it(`Should configure Vite's server.origin property as "${tc.expectedOrigin}".`, async () => {
             // Arrange.
             const options: CollageJsCssPluginOptions = { serverPort: tc.port, localhostSsl: tc.localhostSsl };
-            const plugIn = pluginFactory(readPkgJsonFile)(options);
+            const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
             const env: ConfigEnv = { command: 'build', mode: 'development' };
 
             // Act.
@@ -256,7 +255,7 @@ describe('pluginFactory', () => {
     });
     const exModuleIdResolutionTest = async (viteCmd: ConfigEnv['command'], source: string, expectedResult: string | null) => {
         // Arrange.
-        const plugIn = pluginFactory(readPkgJsonFile)({ serverPort: 4444 });
+        const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444 }))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugIn.config as ConfigHandler)({}, env);
 
@@ -309,7 +308,7 @@ describe('pluginFactory', () => {
             }
             return Promise.resolve('');
         }) as Parameters<typeof pluginFactory>[0];
-        const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
+        const plugIn = (await pluginFactory(readFile)({ serverPort: 4444 }))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugIn.config as ConfigHandler)({}, env);
 
@@ -366,7 +365,7 @@ describe('pluginFactory', () => {
             }
             return Promise.resolve('');
         }) as Parameters<typeof pluginFactory>[0];
-        const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
+        const plugIn = (await pluginFactory(readFile)({ serverPort: 4444 }))[0];
         const env: ConfigEnv = { command: viteCmd, mode: mode };
         await (plugIn.config as ConfigHandler)({}, env);
 
@@ -399,7 +398,7 @@ describe('pluginFactory', () => {
     }
     const cssMapInsertionTest = async (bundle: OutputBundle, expectedMap: Record<string, string[]>) => {
         // Arrange.
-        const plugIn = pluginFactory(readPkgJsonFile)({ serverPort: 4444 });
+        const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444 }))[0];
         const env: ConfigEnv = { command: 'build', mode: 'production' };
         await (plugIn.config as ConfigHandler)({}, env);
         for (let x in bundle) {
@@ -707,7 +706,7 @@ describe('pluginFactory', () => {
     const cssMapQuotationMarkReplacementTest = async (quote: '"' | "'") => {
         // Arrange.
         const moduleContent = `${quote}{cjcss:CSS_MAP}${quote}`;
-        const plugIn = pluginFactory(readPkgJsonFile)({ serverPort: 4444 });
+        const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444 }))[0];
         const env: ConfigEnv = { command: 'build', mode: 'production' };
         await (plugIn.config as ConfigHandler)({}, env);
         const bundle = {
@@ -747,7 +746,7 @@ describe('pluginFactory', () => {
     });
     it("Should insert the package's name in the chunks that require it.", async () => {
         // Arrange.
-        const plugIn = pluginFactory(readPkgJsonFile)({ serverPort: 4444 });
+        const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444 }))[0];
         const env: ConfigEnv = { command: 'build', mode: 'production' };
         await (plugIn.config as ConfigHandler)({}, env);
         const bundle = {
@@ -767,7 +766,7 @@ describe('pluginFactory', () => {
     it("Should insert the specified project ID in the chunks that require it.", async () => {
         // Arrange.
         const projectId = 'custom-pid';
-        const plugIn = pluginFactory(readPkgJsonFile)({ serverPort: 4444, projectId });
+        const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444, projectId }))[0];
         const env: ConfigEnv = { command: 'build', mode: 'production' };
         await (plugIn.config as ConfigHandler)({}, env);
         const bundle = {
@@ -786,7 +785,7 @@ describe('pluginFactory', () => {
     });
     const spaEntryPointsTest = async (expects: Record<string, string>, inputs?: string | string[]) => {
         // Arrange.
-        const plugIn = pluginFactory(readPkgJsonFile)({ serverPort: 4444, entryPoints: inputs });
+        const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444, entryPoints: inputs }))[0];
         const env: ConfigEnv = { command: 'build', mode: 'production' };
 
         // Act.
