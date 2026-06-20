@@ -45,7 +45,6 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
-    "@collagejs/imo": "^0.2.1",
     "@types/node": "^25.0.3",
     "publint": "^0.3.16",
     "rimraf": "^6.1.2",
@@ -53,6 +52,7 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
+    "@collagejs/imo": "0.x || 1.x",
     "@collagejs/vite-aim": "0.x || 1.x",
     "wj-config": "^4.0.0-beta.0 || ^4"
   }
