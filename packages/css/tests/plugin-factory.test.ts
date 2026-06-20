@@ -783,6 +783,51 @@ describe('pluginFactory', () => {
         const entry = bundle['A.js'];
         expect(entry.code).to.equal(projectId);
     });
+    it("Should throw an error if the specified project ID is not a string.", async () => {
+        // Arrange.
+        const projectId = 12345 as unknown as string;
+
+        // Act.
+        const act = async () => await pluginFactory(readPkgJsonFile)({ serverPort: 4444, projectId });
+
+        // Assert.
+        await expect(act).rejects.toThrow();
+    });
+    it("Should throw an error if the project ID defaults to package.json's name but that name is not a string.", async () => {
+        // Arrange.
+        const readFile = ((fileName: string) => {
+            if (fileName === './package.json') {
+                return Promise.resolve(JSON.stringify({ name: 12345 }));
+            }
+            return Promise.resolve('');
+        }) as Parameters<typeof pluginFactory>[0];
+
+        // Act.
+        const act = async () => await pluginFactory(readFile)({ serverPort: 4444 });
+
+        // Assert.
+        await expect(act).rejects.toThrow();
+    });
+    it("Should throw an error if the project ID is an empty string.", async () => {
+        // Arrange.
+        const projectId = '';
+
+        // Act.
+        const act = async () => await pluginFactory(readPkgJsonFile)({ serverPort: 4444, projectId });
+
+        // Assert.
+        await expect(act).rejects.toThrow();
+    });
+    it("Should throw an error if the project ID contains slashes.", async () => {
+        // Arrange.
+        const projectId = 'invalid/project';
+
+        // Act.
+        const act = async () => await pluginFactory(readPkgJsonFile)({ serverPort: 4444, projectId });
+
+        // Assert.
+        await expect(act).rejects.toThrow();
+    });
     const spaEntryPointsTest = async (expects: Record<string, string>, inputs?: string | string[]) => {
         // Arrange.
         const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444, entryPoints: inputs }))[0];

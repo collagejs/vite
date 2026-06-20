@@ -32,7 +32,19 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                 cfg.aim ??= defaultOptions.aim;
                 cfg.entryPoints ??= defaultOptions.entryPoints;
                 cfg.projectId ??= JSON.parse(await readFile('./package.json', { encoding: 'utf8' })).name;
+                if (typeof cfg.projectId !== 'string') {
+                    throw new Error("The 'projectId' option must be a string, or if defaulting to the project's name in package.json, that name must be a string.");
+                }
                 cfg.projectId = cfg.projectId.substring(0, 20);
+                if (cfg.projectId.length === 0) {
+                    throw new Error("The 'projectId' option cannot be an empty string, or if defaulting to the project's name in package.json, that name cannot be an empty string.");
+                }
+                // If necessary, this check can be generalized to check against characters that would be invalid in
+                // file names under both Windows and Unix-like systems.  For now, this covers the cases where package 
+                // names are scoped.
+                if (cfg.projectId.includes('/')) {
+                    throw new Error("The 'projectId' option (either explicitly set or inherited from the project's name in package.json) cannot include slashes ('/'), as it is used in asset file names and that would interfere with folder structure.");
+                }
                 return cfg;
             })
             .build();
