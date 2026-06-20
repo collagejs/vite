@@ -18,7 +18,8 @@
   "scripts": {
     "build": "vite build && publint",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "echo No tests."
   },
   "devDependencies": {
     "vite": "^7.0.0",
