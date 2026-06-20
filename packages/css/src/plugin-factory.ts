@@ -24,7 +24,7 @@ const defaultOptions = {
  */
 export function pluginFactory(readFileFn?: typeof fs.readFile): (config: CollageJsCssPluginOptions, aimOptions?: PluginOptions) => Promise<[Plugin, Plugin | null]> {
     const readFile = readFileFn ?? fs.readFile;
-    return async (config: CollageJsCssPluginOptions | PluginOptions, aimOptions?: PluginOptions) => {
+    return async (config: CollageJsCssPluginOptions, aimOptions?: PluginOptions) => {
         const cssOpt = await wjConfig()
             .addObject(config as CollageJsCssPluginOptions)
             .postMerge(async cfg => {
