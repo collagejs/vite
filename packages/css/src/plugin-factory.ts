@@ -6,6 +6,14 @@ import { closeLog, formatData, markdownCodeBlock, openLog, writeToLog } from './
 import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
 import { cssHelpersModuleName, extensionModuleName, typesModuleName } from './ex-defs.js';
+import { cjsAimPlugin, type PluginOptions } from '@collagejs/vite-aim';
+import wjConfig from 'wj-config';
+
+const defaultOptions = {
+    localhostSsl: false,
+    entryPoints: 'src/piece.ts',
+    aim: true,
+};
 
 /**
  * Factory function that produces the `@collagejs/vite-css` plugin factory.  Yes, a factory of factories.
@@ -14,10 +22,21 @@ import { cssHelpersModuleName, extensionModuleName, typesModuleName } from './ex
  * @param readFileFn Function used to read files.
  * @returns The plug-in factory function.
  */
-export function pluginFactory(readFileFn?: typeof fs.readFile): (config: CollageJsCssPluginOptions) => Plugin {
+export function pluginFactory(readFileFn?: typeof fs.readFile): (config: CollageJsCssPluginOptions, aimOptions?: PluginOptions) => Promise<[Plugin, Plugin | null]> {
     const readFile = readFileFn ?? fs.readFile;
-    return (config: CollageJsCssPluginOptions) => {
-        const lg = config.logging;
+    return async (config: CollageJsCssPluginOptions | PluginOptions, aimOptions?: PluginOptions) => {
+        const cssOpt = await wjConfig()
+            .addObject(config as CollageJsCssPluginOptions)
+            .postMerge(async cfg => {
+                cfg.localhostSsl ??= defaultOptions.localhostSsl;
+                cfg.aim ??= defaultOptions.aim;
+                cfg.entryPoints ??= defaultOptions.entryPoints;
+                cfg.projectId ??= JSON.parse(await readFile('./package.json', { encoding: 'utf8' })).name;
+                cfg.projectId = cfg.projectId.substring(0, 20);
+                return cfg;
+            })
+            .build();
+        const lg = cssOpt.logging;
         if (lg?.chunks || lg?.config || lg?.incomingConfig) {
             openLog(lg?.fileName);
         }
@@ -33,10 +52,6 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
          * Used to cache the built /Ex module.
          */
         let exModule: string;
-        /**
-         * Project ID to use.
-         */
-        let projectId: string;
         /**
          * Map of CSS files for CSS mounting.
          */
@@ -71,24 +86,18 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
          */
         async function mifeConfig(cfg: UserConfig, viteOpts: ConfigEnv) {
             const computedConfig: UserConfig = {};
-            if (!config) {
-                return computedConfig;
-            }
-            projectId = config.projectId ??
-                JSON.parse(await readFile('./package.json', { encoding: 'utf8' })).name;
-            projectId = projectId.substring(0, 20);
             computedConfig.server = {
-                port: config.serverPort,
-                origin: `http${config.localhostSsl ? 's' : ''}://localhost:${config.serverPort}`,
+                port: cssOpt.serverPort,
+                origin: `http${cssOpt.localhostSsl ? 's' : ''}://localhost:${cssOpt.serverPort}`,
             };
             computedConfig.preview = {
-                port: config.serverPort,
+                port: cssOpt.serverPort,
             };
             const entryFileNames = '[name].js';
             const input: InputOption = {};
             let preserveEntrySignatures: PreserveEntrySignaturesOption;
             if (viteOpts.command === 'build') {
-                let entryPoints = config?.entryPoints ?? 'src/piece.ts';
+                let entryPoints = cssOpt.entryPoints;
                 if (typeof entryPoints === 'string') {
                     entryPoints = [entryPoints];
                 }
@@ -101,9 +110,9 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                 input['index'] = 'index.html';
                 preserveEntrySignatures = false;
             }
-            const assetFileNames = config.assetFileNames ?? 'assets/[name]-[hash][extname]';
+            const assetFileNames = cssOpt.assetFileNames ?? 'assets/[name]-[hash][extname]';
             const fileInfo = path.parse(assetFileNames);
-            const cssFileNames = path.join(fileInfo.dir, `cjcss(${projectId})${fileInfo.name}`);
+            const cssFileNames = path.join(fileInfo.dir, `cjcss(${cssOpt.projectId})${fileInfo.name}`);
             computedConfig.build = {
                 rollupOptions: {
                     input,
@@ -128,7 +137,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
             return computedConfig;
         }
 
-        return {
+        return [{
             name: '@collagejs/vite-css',
             async config(cfg, opts) {
                 viteEnv = opts;
@@ -213,11 +222,11 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                     const entry = bundle[x];
                     if (entry?.type === 'chunk') {
                         entry.code = entry.code
-                            ?.replace('{cjcss:PROJECT_ID}', projectId)
+                            ?.replace('{cjcss:PROJECT_ID}', cssOpt.projectId)
                             .replace(/['"]{cjcss:CSS_MAP}['"]/, stringifiedCssMap);
                     }
                 }
             },
-        };
+        }, cssOpt.aim ? cjsAimPlugin(aimOptions) : null];
     };
 };
