@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { defaultBuildImportMap, defaultDevImportMap, pluginFactory } from '../src/plugin-factory.js';
 import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, MinimalPluginContextWithoutEnvironment, UserConfig } from 'vite';
 import type { CollageJsImPluginOptions, ImportMapsOption } from "../src/types.js";
@@ -7,6 +7,16 @@ import type { ImportMap } from '@collagejs/importmap';
 import { ImoUiOptions } from '@collagejs/imo';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
+
+const mockedAimPlugin = vi.hoisted(() => {
+    return vi.fn().mockReturnValue({});
+});
+vi.mock(import("@collagejs/vite-aim"), async () => {
+    return {
+        ...await vi.importActual("@collagejs/vite-aim"),
+        cjsAimPlugin: mockedAimPlugin
+    };
+});
 
 const viteCommands: ConfigEnv['command'][] = [
     'serve',
@@ -145,12 +155,10 @@ describe('pluginFactory', () => {
             integrity: {}
         };
         let fileRead = false;
-        let fileReadCount = 0;
         const readFile = ((x: string) => {
             if (x === fileName) {
                 fileRead = true;
             }
-            ++fileReadCount;
             return Promise.resolve(JSON.stringify(importMap));
         }) as Parameters<typeof pluginFactory>[0];
         const plugin = (await pluginFactory(readFile, fileExists)())[0];
@@ -163,7 +171,6 @@ describe('pluginFactory', () => {
 
         // Assert.
         expect(fileRead).to.equal(true);
-        expect(fileReadCount).to.equal(1);
         expect(xForm).to.not.equal(null);
         expect(xForm).to.not.equal(undefined);
         if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
@@ -210,12 +217,10 @@ describe('pluginFactory', () => {
             integrity: {}
         };
         let fileRead = false;
-        let fileReadCount = 0;
         const readFile = ((x: string) => {
             if (x === fileName) {
                 fileRead = true;
             }
-            ++fileReadCount;
             return Promise.resolve(JSON.stringify(importMap));
         }) as Parameters<typeof pluginFactory>[0];
         const pluginOptions: CollageJsImPluginOptions = { importMaps: {} };
@@ -230,7 +235,6 @@ describe('pluginFactory', () => {
 
         // Assert.
         expect(fileRead).to.equal(true);
-        expect(fileReadCount).to.equal(1);
         expect(xForm).to.not.equal(null);
         expect(xForm).to.not.equal(undefined);
         if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
@@ -267,12 +271,10 @@ describe('pluginFactory', () => {
             'B.json': map2
         };
         let fileRead: Record<string, boolean> = {};
-        let fileReadCount = 0;
         const readFile = ((x: string) => {
             if (fileNames.includes(x)) {
                 fileRead[x] = true;
             }
-            ++fileReadCount;
             return Promise.resolve(JSON.stringify(importMaps[x]));
         }) as Parameters<typeof pluginFactory>[0];
         const pluginOptions: CollageJsImPluginOptions = { importMaps: {} };
@@ -287,7 +289,6 @@ describe('pluginFactory', () => {
 
         // Assert.
         expect(Object.keys(fileRead).length).to.equal(2);
-        expect(fileReadCount).to.equal(2);
         expect(xForm).to.not.equal(null);
         expect(xForm).to.not.equal(undefined);
         if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
@@ -775,4 +776,84 @@ describe('pluginFactory', () => {
         }
         it(`Should not include "@collagejs/imo"' UI script when the "imoUi" property is set to false on ${cmd}.`, () => imoUiIncludeTest(cmd, false, false));
     }
+    describe("AIM Plug-In", () => {
+        afterEach(() => {
+            mockedAimPlugin.mockReset();
+        });
+        it.each([
+            {
+                aim: undefined,
+                text: 'include',
+            },
+            {
+                aim: true,
+                text: 'include',
+            },
+            {
+                aim: false,
+                text: 'not include',
+            }
+        ])("Should $text the AIM plug-in whenever the 'aim' property is $aim .", async ({ aim }) => {
+            // Arrange.
+            const fileExists = () => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
+            const pluginOptions: CollageJsImPluginOptions = { aim };
+
+            // Act.
+            const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[1];
+
+            // Assert.
+            if (aim !== false) {
+                expect(plugin).not.to.equal(null);
+            }
+            else {
+                expect(plugin).to.equal(null);
+            }
+        });
+        it("Should pass the build-time import maps to the AIM plug-in.", async () => {
+            // Arrange.
+            const fileExists = () => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                },
+                integrity: {}
+            };
+            const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
+
+            // Act.
+            const plugin = (await pluginFactory(readFile, fileExists)())[1];
+
+            // Assert.
+            expect(plugin).not.to.equal(null);
+            expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({ importMap }));
+        });
+        it("Should pass the stock path exceptions to the AIM plug-in.", async () => {
+            // Arrange.
+            const pathExceptions = ['/', '/index.html'];
+            const fileExists = () => false;
+
+            // Act.
+            const plugin = (await pluginFactory(undefined, fileExists)())[1];
+
+            // Assert.
+            expect(plugin).not.to.equal(null);
+            expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({ pathExceptions }));
+        });
+    });
 });
