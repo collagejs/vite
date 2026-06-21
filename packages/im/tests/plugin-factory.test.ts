@@ -5,7 +5,7 @@ import type { CollageJsImPluginOptions, ImportMapsOption } from "../src/types.js
 import type { PathLike } from 'fs';
 import type { ImportMap } from '@collagejs/importmap';
 import { ImoUiOptions } from '@collagejs/imo';
-import { PluginOptions } from '@collagejs/vite-aim';
+import type { PluginOptions } from '@collagejs/vite-aim';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 
@@ -868,7 +868,7 @@ describe('pluginFactory', () => {
             expect(plugin).toBeTruthy();
             expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({ pathExceptions }));
         });
-        it("Should allow explicit an import map to be passed to the AIM plug-in that overrides the default import map.", async () => {
+        it("Should allow an explicit import map to be passed to the AIM plug-in that overrides the default import map.", async () => {
             // Arrange.
             const importMap = {
                 imports: {
