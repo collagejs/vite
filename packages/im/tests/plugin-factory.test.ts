@@ -779,7 +779,7 @@ describe('pluginFactory', () => {
     }
     describe("AIM Plug-In", () => {
         afterEach(() => {
-            mockedAimPlugin.mockReset();
+            mockedAimPlugin.mockClear();
         });
         it.each([
             {
@@ -815,10 +815,10 @@ describe('pluginFactory', () => {
 
             // Assert.
             if (aim !== false) {
-                expect(plugin).not.to.equal(null);
+                expect(plugin).toBeTruthy();
             }
             else {
-                expect(plugin).to.equal(null);
+                expect(plugin).toBeNull();
             }
         });
         it("Should pass the build-time import maps to the AIM plug-in.", async () => {
@@ -841,7 +841,7 @@ describe('pluginFactory', () => {
             const plugin = (await pluginFactory(readFile, fileExists)())[1];
 
             // Assert.
-            expect(plugin).not.to.equal(null);
+            expect(plugin).toBeTruthy();
             expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({ importMap }));
         });
         it("Should pass the stock path exceptions to the AIM plug-in.", async () => {
@@ -853,7 +853,7 @@ describe('pluginFactory', () => {
             const plugin = (await pluginFactory(undefined, fileExists)())[1];
 
             // Assert.
-            expect(plugin).not.to.equal(null);
+            expect(plugin).toBeTruthy();
             expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({ pathExceptions }));
         });
         it("Should allow explicit path exceptions to override the stock path exceptions passed to the AIM plug-in.", async () => {
@@ -865,7 +865,7 @@ describe('pluginFactory', () => {
             const plugin = (await pluginFactory(undefined, fileExists)(undefined, { pathExceptions }))[1];
 
             // Assert.
-            expect(plugin).not.to.equal(null);
+            expect(plugin).toBeTruthy();
             expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({ pathExceptions }));
         });
         it("Should allow explicit an import map to be passed to the AIM plug-in that overrides the default import map.", async () => {
@@ -899,7 +899,7 @@ describe('pluginFactory', () => {
             const plugin = (await pluginFactory(readFile, fileExists)(undefined, { importMap: imOverride }))[1];
 
             // Assert.
-            expect(plugin).not.to.equal(null);
+            expect(plugin).toBeTruthy();
             expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({ importMap: imOverride }));
         });
         it("Should allow passing AIM options via the first argument of the plug-in factory.", async () => {
@@ -911,7 +911,7 @@ describe('pluginFactory', () => {
             const plugin = (await pluginFactory(undefined, fileExists)(aimOptions))[1];
 
             // Assert.
-            expect(plugin).not.to.equal(null);
+            expect(plugin).toBeTruthy();
             expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining(aimOptions));
         });
     });
