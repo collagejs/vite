@@ -36,7 +36,8 @@
     "dist"
   ],
   "scripts": {
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
     "build": "tsc && publint",
     "type-check": "tsc --noEmit"

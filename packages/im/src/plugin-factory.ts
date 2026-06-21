@@ -2,7 +2,7 @@ import { promises as fs, existsSync } from 'fs';
 import type { HtmlTagDescriptor, ConfigEnv, Plugin } from 'vite';
 import type { CollageJsImPluginOptions, ImportMapsOption } from './types.js';
 import type { ImportMap } from "@collagejs/importmap";
-import { cjsAimPlugin, PluginOptions } from '@collagejs/vite-aim';
+import { cjsAimPlugin, type PluginOptions } from '@collagejs/vite-aim';
 import wjConfig from 'wj-config';
 import { imoUiOptionsId, imPostingOptionsId } from '@collagejs/imo/const';
 
@@ -75,10 +75,12 @@ export function pluginFactory(
         }
 
         /**
-         * Builds and returns the final import map using as input the provided input maps.
+         * Merges multiple import maps into a single import map.  The merging is done by merging the `imports`, 
+         * `scopes` and `integrity` properties of the maps.  In case of conflicts, the last map in the array wins.
          * @param maps Array of import maps that are merged together as a single map.
+         * @returns A single import map that results from merging the input maps.
          */
-        function buildImportMap(maps: ImportMap[]) {
+        function mergeImportMaps(maps: ImportMap[]) {
             const importMap: Required<ImportMap> = { imports: {}, scopes: {}, integrity: {} };
             for (let map of maps) {
                 if (map.imports) {
@@ -104,17 +106,27 @@ export function pluginFactory(
         }
 
         /**
+         * Builds the import map by loading the pertinent import map files and merging them together.  If no import map
+         * files are found, `undefined` is returned.
+         * @param command Vite command (serve or build) that is used to determine which import map files are pertinent.
+         * @returns The final import map.
+         */
+        async function buildImportMap(command?: ConfigEnv['command']) {
+            const importMapContents = await loadImportMaps(command ?? viteEnv.command);
+            if (importMapContents) {
+                return mergeImportMaps(importMapContents.map(t => JSON.parse(t)));
+            }
+            return undefined;
+        }
+
+        /**
          * Transforms the HTML file of projects by injecting import maps and the @collagejs/imo script and UI.
          * @param html HTML file content in string format.
          * @returns An `IndexHtmlTransformResult` object that includes the injected import map and the 
          * @collagejs/imo body markup.
          */
         async function rootIndexTransform(html: string) {
-            const importMapContents = await loadImportMaps(viteEnv.command);
-            let importMap: Required<ImportMap> | undefined = undefined;
-            if (importMapContents) {
-                importMap = buildImportMap(importMapContents.map(t => JSON.parse(t)));
-            }
+            let importMap: Required<ImportMap> | undefined = await buildImportMap();
             const tags: HtmlTagDescriptor[] = [];
             if (importMap) {
                 tags.push({
@@ -206,15 +218,28 @@ export function pluginFactory(
                 return cfg;
             })
             .build();
-        const aimOpt = await wjConfig()
-            .addObject({
-                pathExceptions: ['/', 'index.html']
-            })
-            .addObject(() => Promise.resolve(aimOptions!))
-            .when(() => !!aimOptions && !isImOptions(options))
-            .addObject(() => Promise.resolve(options as PluginOptions))
-            .when(() => !isImOptions(options) && !!options)
-            .build();
+        let aimOpt: PluginOptions | undefined;
+        if (imOpt.aim !== false) {
+            aimOpt = await wjConfig()
+                .addObject({
+                    pathExceptions: ['/', '/index.html']
+                })
+                .addObject(() => Promise.resolve(aimOptions!))
+                .when(() => !!aimOptions && !isImOptions(options))
+                .addObject(() => Promise.resolve(options as PluginOptions))
+                .when(() => !isImOptions(options) && !!options)
+                .postMerge(async (cfg) => {
+                    if (cfg.importMap) {
+                        return cfg;
+                    }
+                    const im = await buildImportMap('build');
+                    if (im) {
+                        cfg.importMap = im;
+                    }
+                    return cfg;
+                })
+                .build();
+        }
         return [{
             name: '@collagejs/vite-im',
             async config(_cfg, opts) {
