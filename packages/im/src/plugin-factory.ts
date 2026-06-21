@@ -218,24 +218,28 @@ export function pluginFactory(
                 return cfg;
             })
             .build();
-        const aimOpt = await wjConfig()
-            .addObject({
-                pathExceptions: ['/', '/index.html']
-            })
-            .addObject(() => Promise.resolve(aimOptions!))
-            .when(() => !!aimOptions && !isImOptions(options))
-            .addObject(() => Promise.resolve(options as PluginOptions))
-            .when(() => !isImOptions(options) && !!options)
-            .addObject(async () => {
-                const im = await buildImportMap('build');
-                if (im) {
-                    return {
-                        importMap: im,
-                    };
-                }
-                return { importMap: undefined };
-            })
-            .build();
+        let aimOpt: PluginOptions | undefined;
+        if (imOpt.aim !== false) {
+            aimOpt = await wjConfig()
+                .addObject({
+                    pathExceptions: ['/', '/index.html']
+                })
+                .addObject(() => Promise.resolve(aimOptions!))
+                .when(() => !!aimOptions && !isImOptions(options))
+                .addObject(() => Promise.resolve(options as PluginOptions))
+                .when(() => !isImOptions(options) && !!options)
+                .postMerge(async (cfg) => {
+                    if (cfg.importMap) {
+                        return cfg;
+                    }
+                    const im = await buildImportMap('build');
+                    if (im) {
+                        cfg.importMap = im;
+                    }
+                    return cfg;
+                })
+                .build();
+        }
         return [{
             name: '@collagejs/vite-im',
             async config(_cfg, opts) {

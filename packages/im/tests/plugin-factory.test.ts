@@ -5,6 +5,7 @@ import type { CollageJsImPluginOptions, ImportMapsOption } from "../src/types.js
 import type { PathLike } from 'fs';
 import type { ImportMap } from '@collagejs/importmap';
 import { ImoUiOptions } from '@collagejs/imo';
+import { PluginOptions } from '@collagejs/vite-aim';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 
@@ -854,6 +855,64 @@ describe('pluginFactory', () => {
             // Assert.
             expect(plugin).not.to.equal(null);
             expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({ pathExceptions }));
+        });
+        it("Should allow explicit path exceptions to override the stock path exceptions passed to the AIM plug-in.", async () => {
+            // Arrange.
+            const pathExceptions = ['/custom-path'];
+            const fileExists = () => false;
+
+            // Act.
+            const plugin = (await pluginFactory(undefined, fileExists)(undefined, { pathExceptions }))[1];
+
+            // Assert.
+            expect(plugin).not.to.equal(null);
+            expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({ pathExceptions }));
+        });
+        it("Should allow explicit an import map to be passed to the AIM plug-in that overrides the default import map.", async () => {
+            // Arrange.
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                },
+                integrity: {}
+            };
+            const imOverride = {
+                imports: {
+                    '@x/y': 'z'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@x/y': 'z'
+                    }
+                },
+                integrity: {}
+            };
+            const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
+            const fileExists = () => true;
+
+            // Act.
+            const plugin = (await pluginFactory(readFile, fileExists)(undefined, { importMap: imOverride }))[1];
+
+            // Assert.
+            expect(plugin).not.to.equal(null);
+            expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining({ importMap: imOverride }));
+        });
+        it("Should allow passing AIM options via the first argument of the plug-in factory.", async () => {
+            // Arrange.
+            const aimOptions: PluginOptions = { banner: false, allowedOrigins: ['https://example.com'] };
+            const fileExists = () => false;
+
+            // Act.
+            const plugin = (await pluginFactory(undefined, fileExists)(aimOptions))[1];
+
+            // Assert.
+            expect(plugin).not.to.equal(null);
+            expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining(aimOptions));
         });
     });
 });
