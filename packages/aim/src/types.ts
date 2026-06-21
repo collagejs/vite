@@ -1,5 +1,5 @@
 import type { LogLevel } from "vite";
-import type { ExternalOption } from "rollup";
+import type { ImportMap } from "@collagejs/importmap";
 
 /**
  * Configuration options for the @collagejs/vite-aim plug-in.
@@ -38,14 +38,15 @@ export interface PluginOptions {
      */
     banner?: boolean;
     /**
-     * Rollup externals configuration used during build.  The values specified here will be merged with the ones in 
-     * Vite's `build.rollupOptions.external`, if any.
+     * Import map used to externalize module identifiers while building.
      * 
-     * **IMPORTANT**:  Use this option instead of Vite's `build.rollupOptions.external` to externalize everything that 
-     * is expected to be in the import maps.
+     * This option is automatically populated by the `@collagejs/vite-im` plug-in when said plug-in injects this one.
      * 
-     * Unfortunately, the automatic externalization resolution of this plug-in depends on Vite's development server.
+     * This option is **not** populated by the `@collagejs/vite-css` plug-in, as this plug-in has no import map 
+     * information at hand.  Always specify this option for *CollageJS* micro-frontend projects that rely on module 
+     * identifiers that are defined in the import map by the root project, or alternatively use Vite's 
+     * `build.rollupOptions.external` option to externalize those module identifiers.
      * @default undefined
      */
-    externals?: ExternalOption | undefined;
+    importMap?: ImportMap | undefined;
 }

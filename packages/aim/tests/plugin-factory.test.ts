@@ -1,140 +1,40 @@
 import { describe, test, expect, vi, beforeAll, beforeEach } from "vitest";
-import type { ExternalOption } from "rollup";
-import { cjsAimPlugin, defaultImportMapEndpoint, mergeExternalOptions, pluginName } from "../src/plugin-factory";
+import { cjsAimPlugin, defaultImportMapEndpoint, pluginName } from "../src/plugin-factory";
 import { createServer } from "vite";
-import type { ConfigEnv, ResolvedConfig, ServerHook, UserConfig, ViteDevServer, Connect } from "vite";
+import type { ConfigEnv, ResolvedConfig, ServerHook, ViteDevServer, Connect } from "vite";
 import type { ServerResponse } from "http";
 import { PluginOptions } from "../src";
 
-type ViteConfigHookFn = (config: UserConfig, env: ConfigEnv) => Omit<UserConfig, "plugins">;
 type ViteConfigResolvedHookFn = (config: ResolvedConfig) => void | Promise<void>;
+type ViteResolveIdHookFn = (id: string, importer?: string, options?: { ssr?: boolean }) => Promise<{ id: string; external: true } | null | undefined>;
 
-describe("mergeExternalOptions", () => {
-    test.each<{
-        externals: ExternalOption;
-        text: string;
-        verifications: {
-            input: string;
-            expected: boolean;
-        }[];
-    }>([
-        {
-            externals: [],
-            text: "empty externals",
-            verifications: [
-                {
-                    input: "foo",
-                    expected: false
-                }
-            ]
-        },
-        {
-            externals: ["foo", "bar"],
-            text: "string externals",
-            verifications: [
-                {
-                    input: "foo",
-                    expected: true
-                },
-                {
-                    input: "baz",
-                    expected: false
-                }
-            ]
-        },
-        {
-            externals: [/^foo$/, /^bar$/],
-            text: "regex externals",
-            verifications: [
-                {
-                    input: "foo",
-                    expected: true
-                },
-                {
-                    input: "bar",
-                    expected: true
-                },
-                {
-                    input: "baz",
-                    expected: false
-                }
-            ]
-        },
-        {
-            externals: ["foo", /^bar$/],
-            text: "mixed externals",
-            verifications: [
-                {
-                    input: "foo",
-                    expected: true
-                },
-                {
-                    input: "bar",
-                    expected: true
-                },
-                {
-                    input: "baz",
-                    expected: false
-                }
-            ]
-        },
-        {
-            externals: (id) => id === "foo",
-            text: "function externals",
-            verifications: [
-                {
-                    input: "foo",
-                    expected: true
-                },
-                {
-                    input: "bar",
-                    expected: false
-                }
-            ]
+vi.mock("vite", async () => {
+    const actual = await vi.importActual("vite");
+    return {
+        ...actual,
+        createLogger: () => {
+            return {
+                error: vi.fn(),
+                warn: vi.fn(),
+                info: vi.fn(),
+                success: vi.fn()
+            };
         }
-    ])("Should correctly merge $text .", ({ externals, verifications }) => {
-        const merged = mergeExternalOptions(externals) as (id: string) => boolean;
-        for (const { input, expected } of verifications) {
-            expect(merged(input)).toBe(expected);
-        }
-    });
-    test("Should pass source, importer and isResolved arguments to function externals.", () => {
-        const mockFn = vi.fn().mockReturnValue(false);
-        const merged = mergeExternalOptions(mockFn) as (id: string, importer?: string, isResolved?: boolean) => boolean;
-        merged("foo", "importer.js", true);
-        expect(mockFn).toHaveBeenCalledWith("foo", "importer.js", true);
-    });
-    test("Should return the return value of the function externals.", () => {
-        const mockFn = vi.fn().mockReturnValue(true);
-        const merged = mergeExternalOptions(mockFn) as (id: string) => boolean;
-        expect(merged("foo")).toBe(true);
-    });
+    };
+});
+
+vi.mock("@collagejs/shared", async () => {
+    const actual = await vi.importActual("@collagejs/shared");
+    return {
+        ...actual,
+        showCollageBanner: vi.fn(),
+    };
 });
 
 describe("cjsAimPlugin", () => {
     test("Should create a plugin with the correct name.", () => {
         const plugin = cjsAimPlugin();
         expect(plugin.name).toBe(pluginName);
-    });
-    test("Should not touch Vite's configuration when Vite runs in serve mode.", async () => {
-        const plugin = cjsAimPlugin();
-        const config: UserConfig = {};
-        await (plugin.config as ViteConfigHookFn)(config, { command: "serve", mode: "development" });
-        expect(config).toEqual({});
-    });
-    test("Should merge external options into Vite's configuration when Vite runs in build mode.", async () => {
-        const plugin = cjsAimPlugin({
-            externals: ["foo", /^bar$/]
-        });
-        const config: UserConfig = {};
-        await (plugin.config as ViteConfigHookFn)(config, { command: "build", mode: "development" });
-        expect(config).toEqual({
-            build: {
-                rollupOptions: {
-                    external: ["foo", /^bar$/]
-                }
-            }
-        });
     });
     describe('configureServer', () => {
         let devServer: ViteDevServer;
@@ -148,7 +48,6 @@ describe("cjsAimPlugin", () => {
         const preparePlugin = async (pluginOptions?: PluginOptions, base?: string) => {
             base ??= '/';
             const plugin = cjsAimPlugin(pluginOptions);
-            await (plugin.config as ViteConfigHookFn)({}, { command: "serve", mode: "development" });
             await (plugin.configResolved as ViteConfigResolvedHookFn)({ base, command: "serve" } as ResolvedConfig);
             return plugin;
         };
@@ -423,6 +322,29 @@ describe("cjsAimPlugin", () => {
                 handler(req, res, next);
                 expect(next).toHaveBeenCalledOnce();
             });
+        });
+    });
+    describe("resolveId", () => {
+        test.each<{
+            viteCmd: ConfigEnv["command"];
+            text: string;
+            expected: { id: string; external: true } | null;
+        }>([
+            {
+                viteCmd: "serve",
+                text: "not externalize",
+                expected: null
+            },
+            {
+                viteCmd: "build",
+                text: "externalize",
+                expected: { id: '/foo.js', external: true }
+            }
+        ])("Should $text module identifiers that are defined in the 'importMap' option while in $viteCmd mode.", async ({ viteCmd, expected }) => {
+            const plugin = cjsAimPlugin({ importMap: { imports: { 'foo': '/foo.js' } } });
+            await (plugin.configResolved as ViteConfigResolvedHookFn)({ command: viteCmd } as ResolvedConfig);
+            const resolved = await (plugin.resolveId as ViteResolveIdHookFn)('foo', undefined, { ssr: false });
+            expect(resolved).toEqual(expected);
         });
     });
 });
