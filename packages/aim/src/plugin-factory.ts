@@ -1,10 +1,9 @@
 import { createLogger, type Connect, type Logger, type Plugin, type ResolvedConfig } from 'vite';
 import { ManualResetEvent } from '@wjfe/async-workers';
 import pc from "picocolors";
-import { fmt, showCollageBanner, ImportMap } from "@collagejs/shared";
+import { fmt, showCollageBanner } from "@collagejs/shared";
 import type { PluginOptions } from './types.js';
-import type { ExternalOption } from 'rollup';
-import { resolver, type Resolver } from '@collagejs/importmap';
+import { resolver, type ImportMap, type Resolver } from '@collagejs/importmap';
 
 /**
  * The name of the plugin, used in Vite's plugin system and for logging purposes.
@@ -19,35 +18,6 @@ export const pluginName = '@collagejs/vite-aim';
  * NOTE:  This is exported for testing purposes only.
  */
 export const defaultImportMapEndpoint = '/__import_map';
-
-/**
- * Creates a function compliant with Rollup's ExternalOption that merges multiple externalization options.
- * 
- * **NOTE**:  Only exported for unit-testing purposes.
- * @param options Externalization options to merge.
- * @returns A function that effectively works as the merge of all provided externalization options.
- */
-export function mergeExternalOptions(...options: ExternalOption[]): ExternalOption {
-    return (source: string, importer: string | undefined, isResolved: boolean) => {
-        for (const opt of options) {
-            if (typeof opt === 'string') {
-                if (source === opt) return true;
-            }
-            else if (opt instanceof RegExp) {
-                if (opt.test(source)) return true;
-            }
-            else if (Array.isArray(opt)) {
-                if (opt.includes(source) || opt.some(r => r instanceof RegExp && r.test(source))) {
-                    return true;
-                }
-            }
-            else {
-                if (opt(source, importer, isResolved)) return true;
-            }
-        }
-        return false;
-    };
-}
 
 /**
  * Creates a Vite plugin for handling import maps in micro-frontend architectures.
@@ -69,11 +39,9 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
         importMapTimeout = 2_000, // 2 seconds
         logLevel = undefined,
         banner = true,
-        externals = undefined
     } = options;
 
     let config: ResolvedConfig;
-    let importMap: ImportMap = { imports: {} };
     let importMapResolver: Resolver | undefined;
     let logger: Logger;
     const externalizedModules = new Set<string>();
@@ -109,26 +77,16 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
 
     return {
         name: pluginName,
-        config(config, env) {
-            if (env.command !== 'build' || !externals) {
-                return;
-            }
-            // Merge externals into Vite build config
-            if (config?.build?.rollupOptions?.external) {
-                config.build.rollupOptions.external = mergeExternalOptions(
-                    config.build.rollupOptions.external,
-                    externals
-                );
-            }
-            else {
-                config.build ||= {};
-                config.build.rollupOptions ||= {};
-                config.build.rollupOptions.external = externals;
-            }
-        },
         configResolved(resolvedConfig) {
             config = resolvedConfig;
             logger = createLogger(logLevel ?? config.logLevel, { prefix: `[${pluginName}]` });
+            if (resolvedConfig.command === 'build' && options.importMap) {
+                importMapResolver = resolver(options.importMap);
+                if (!importMapResolver.valid) {
+                    logger.error(`Provided import map is invalid. Build may fail.\nErrors:\n${importMapResolver.validationResult.errors.join('\n')}`, { timestamp: true });
+                    importMapResolver = undefined;
+                }
+            }
         },
         configureServer(devServer) {
             // Disable Vite's preTransformRequests.  After all, it will fail until the import maps are received.
@@ -196,24 +154,25 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
 
                     req.on('end', () => {
                         try {
-                            const receivedImportMap = JSON.parse(body);
-                            importMapResolver = resolver(receivedImportMap);
-                            if (!importMapResolver.valid) {
-                                logger.error(`Received import map is invalid.`);
+                            const receivedImportMap = JSON.parse(body) as ImportMap;
+                            const imResolver = resolver(receivedImportMap);
+                            if (!imResolver.valid) {
+                                logger.error(`Received import map is invalid.`, { timestamp: true });
                                 res.writeHead(400, { 'Content-Type': 'application/json' });
-                                res.end(JSON.stringify({ errors: importMapResolver.validationResult.errors }));
-                                importMapResolver = undefined;
+                                res.end(JSON.stringify({ errors: imResolver.validationResult.errors }));
+                                if (importMapResolver) {
+                                    logger.warn(`Keeping previous valid import map.`, { timestamp: true });
+                                }
                                 return;
                             }
-                            importMap = receivedImportMap;
-
-                            const importCount = Object.keys(importMap.imports || {}).length;
-                            const scopeCount = Object.keys(importMap.scopes || {}).length;
+                            importMapResolver = imResolver;
+                            const importCount = Object.keys(receivedImportMap.imports || {}).length;
+                            const scopeCount = Object.keys(receivedImportMap.scopes || {}).length;
 
                             logger.info(fmt.success(`Received import map from ${fmt.url(origin)}: ${fmt.value(importCount)} imports, ${fmt.value(scopeCount)} scopes`), { timestamp: true });
 
-                            if (importMap.imports) {
-                                for (const [key, value] of Object.entries(importMap.imports)) {
+                            if (receivedImportMap.imports) {
+                                for (const [key, value] of Object.entries(receivedImportMap.imports)) {
                                     logger.info(`  ${fmt.keyword(key)} -> ${fmt.url(value)}`, { timestamp: true });
                                 }
                             }
