@@ -75,10 +75,6 @@ By default, this option's value is `'assets/[name]-[hash][extname]'`.  Yes, you 
 
 ## Factory Function Options
 
-### `logger`
-
-Used to control where or when log entries go.  When set to `true` or not set, logging occurs through the browser's standard console.  When set to `false`, logging is turned off; when set to a custom logger object, then the logger object is used for logging, and the object decides what happens with those log entries.
-
 ### `loadTimeout`
 
 The CSS-mounting algorithm provided by this package features FOUC (Flash Of Unstyled Content) prevention by ensuring the browser loads the CSS before giving way to the micro-frontend/piece mounting process.  This property, whose default value is `1500`, is used to set the amount of time (in milliseconds) the FOUC-prevention feature waits for CSS to load before giving up.
@@ -88,3 +84,21 @@ The CSS-mounting algorithm provided by this package features FOUC (Flash Of Unst
 These properties, when set to `true`, tell the FOUC-prevention algorithm to throw an error whenever a CSS resource fails to load, or takes too long to load.  Their default value is `false`, which signals the algorithm to emit console warnings only.
 
 When throwing errors, the micro-frontend/piece mounting process interrupts.
+
+## Logging
+
+The CSS mounting algorithm logs messages to the console by default.  If this is inconvenient, use the `configureLogger()` function:
+
+```typescript
+import { configureLogger } from "@collagejs/vite-css/ex";
+
+configureLogger(...);
+```
+
+The `option` parameter accepts a Boolean value, or an object that fulfills the `ILogger` interface.  When set to `true` or not set, logging occurs through the browser's standard console.  When set to `false`, logging is turned off; when set to a custom logger object, then the logger object is used for logging, and the object decides what happens with those log entries.
+
+### How and Where to Configure Logging
+
+The logger object is a module level object (a singleton).  Usually, it only needs to be configured once per project.  If the project, however, contains more than one entry point (module), we don't know which entry point will be imported first.  So where to put this configuration?
+
+The sanest option is to create an ES module with the side effect of calling this function.  Then import this ES module in all entry points.

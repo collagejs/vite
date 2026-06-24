@@ -5,7 +5,7 @@ import type { CollageJsCssPluginOptions } from './types.js';
 import { closeLog, formatData, markdownCodeBlock, openLog, writeToLog } from './debug.js';
 import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
-import { cssHelpersModuleName, extensionModuleName, typesModuleName } from './ex-defs.js';
+import { allModuleNames, extensionModuleName } from './ex-defs.js';
 import { cjsAimPlugin, type PluginOptions } from '@collagejs/vite-aim';
 import wjConfig from 'wj-config';
 
@@ -162,7 +162,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
             resolveId: {
                 order: 'pre',
                 handler(source, importer, _options) {
-                    if ([extensionModuleName, cssHelpersModuleName, typesModuleName].includes(source)) {
+                    if (allModuleNames.includes(source)) {
                         console.debug(`Resolving module ${source} imported by ${importer}`);
                         return source;
                     }
@@ -173,7 +173,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                 if (id === extensionModuleName) {
                     return exModule = exModule ?? (await buildExModule());
                 }
-                else if (id === cssHelpersModuleName || id === typesModuleName) {
+                else if (allModuleNames.includes(id)) {
                     return await readFile(buildPeerModulePath(id), { encoding: 'utf8' });
                 }
                 return null;
