@@ -47,10 +47,10 @@ Create `packages/your-plugin-name/package.json`:
   },
   "devDependencies": {
     "rimraf": "^5.0.5",
-    "typescript": "^5.3.3"
+    "typescript": "^6.0.0"
   },
   "peerDependencies": {
-    "vite": "^5.0.0"
+    "vite": "^8.0.0"
   }
 }
 ```
@@ -63,7 +63,6 @@ Create `packages/your-plugin-name/tsconfig.json`:
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": "./src",
     "rootDir": "./src",
     "outDir": "./dist"
   },
@@ -72,7 +71,21 @@ Create `packages/your-plugin-name/tsconfig.json`:
 }
 ```
 
-### Step 4: Install Dependencies
+### Step 4: Add Package to Root `tsconfig.json`
+
+Under `references`, add the package:
+
+```json
+{
+  ...,
+  "references": [
+    ...
+    { path: "./packages/<package folder>"},
+  ]
+}
+```
+
+### Step 5: Install Dependencies
 
 ```bash
 cd packages/your-plugin-name
@@ -105,39 +118,15 @@ npm run build
 
 ## Common Issues and Solutions
 
-### Issue: "Cannot find module './_shared'"
-
-**Cause**: Shared code hasn't been synced to your package  
-**Solution**:
-```bash
-# From root
-npm run sync-shared
-
-# Or from your package
-npm run sync-shared
-```
-
-### Issue: TypeScript errors about rootDir
-
-**Cause**: Import paths pointing outside the `src/` directory  
-**Solution**: Ensure all imports use the `./_shared` pattern for shared code:
-```typescript
-// ❌ Wrong - outside rootDir
-import { utils } from '../shared/src/utils';
-
-// ✅ Correct - using centralized alias
-import { utils } from './_shared';
-```
-
 ### Issue: "Module resolution 'bundler' error"
 
-**Cause**: Incompatible TypeScript configuration  
+**Cause**: Incompatible TypeScript configuration
 **Solution**: Use the exact `tsconfig.json` template from Step 3
 
 ### Issue: Package not building from root
 
-**Cause**: Package not included in workspace  
-**Solution**: Verify your package directory is under `packages/` and run:
+**Cause**: Package not included in workspace
+**Solution**: Verify your package directory is under `packages/`, and make sure it has been listed in the root `tsconfig.json` file and run:
 ```bash
 npm install  # Reinstall to detect new workspace
 ```
@@ -148,7 +137,7 @@ Your migrated plugin can now use these shared utilities:
 
 ### PluginLogger
 ```typescript
-import { PluginLogger } from './_shared';
+import { PluginLogger } from '@collagejs/shared';
 
 const logger = new PluginLogger('your-plugin');
 logger.info('Plugin initialized');     // Blue with prefix
@@ -159,7 +148,7 @@ logger.error('Build failed');         // Red
 
 ### Environment Detection
 ```typescript
-import { isDev, isProd } from './_shared';
+import { isDev, isProd } from '@collagejs/shared';
 
 if (isDev()) {
   // Development-specific code
@@ -169,7 +158,7 @@ if (isDev()) {
 
 ### File Utilities
 ```typescript
-import { /* available utilities */ } from './_shared';
+import { /* available utilities */ } from '@collagejs/shared';
 // Check packages/shared/src/ for all available utilities
 ```
 
