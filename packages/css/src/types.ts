@@ -58,7 +58,7 @@ export type CollageJsCssPluginOptions = {
      * Pattern that specifies how asset file names are constructed.  Its default value is 
      * `assets/[name]-[hash][extname]`.  As seen, it can specify sub-folders.
      * 
-     * Refer to [Rollup's documentation](https://rollupjs.org/configuration-options/#output-assetfilenames) for 
+     * Refer to [Rolldown's documentation](https://rolldown.rs/reference/OutputOptions.assetFileNames#assetfilenames) for 
      * additional information.
      * 
      * **IMPORTANT**:  The CSS bundle file names will be in the form `cjcss(<project id>)<pattern>`.  The plug-in is 

@@ -45,7 +45,7 @@ export interface PluginOptions {
      * This option is **not** populated by the `@collagejs/vite-css` plug-in, as this plug-in has no import map 
      * information at hand.  Always specify this option for *CollageJS* micro-frontend projects that rely on module 
      * identifiers that are defined in the import map by the root project, or alternatively use Vite's 
-     * `build.rollupOptions.external` option to externalize those module identifiers.
+     * `build.rolldownOptions.external` option to externalize those module identifiers.
      * @default undefined
      */
     importMap?: ImportMap | undefined;

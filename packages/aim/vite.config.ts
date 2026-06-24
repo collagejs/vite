@@ -10,14 +10,14 @@ export default defineConfig({
         })
     ],
     build: {
-        minify: 'esbuild',
+        minify: 'oxc',
         lib: {
             entry: {
                 index: 'src/index.ts',
             },
         },
-        rollupOptions: {
-            external: ['vite', 'rollup'],
+        rolldownOptions: {
+            external: ['vite', 'rolldown'],
             output: [
                 {
                     format: 'es',

@@ -69,7 +69,7 @@ If no value is provided, the package.json's `name` property will be used by defa
 
 ### `assetFileNames`
 
-This option accepts a Rollup-compliant pattern for asset filenames.  Refer to its [documentation online](https://rollupjs.org/configuration-options/#output-assetfilenames) for full details.  Note, however, that the pattern will only be respected for non-CSS assets.  CSS files will be named in the form `cjcss(<project id>)<pattern>`, so not exactly the provided pattern.
+This option accepts a Rolldown-compliant pattern for asset filenames.  Refer to its [documentation online](https://rolldown.rs/reference/OutputOptions.assetFileNames#assetfilenames) for full details.  Note, however, that the pattern will only be respected for non-CSS assets.  CSS files will be named in the form `cjcss(<project id>)<pattern>`, so not exactly the provided pattern.
 
 By default, this option's value is `'assets/[name]-[hash][extname]'`.  Yes, you may add sub directories to the pattern.
 

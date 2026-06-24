@@ -43,7 +43,7 @@
   },
   "license": "MIT",
   "peerDependencies": {
-    "vite": "^7.0.0"
+    "vite": "^8.1.0"
   },
   "devDependencies": {
     "@collagejs/shared": "*",

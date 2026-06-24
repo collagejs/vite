@@ -4,7 +4,7 @@ import path from 'path';
 import type { CollageJsCssPluginOptions } from './types.js';
 import { closeLog, formatData, markdownCodeBlock, openLog, writeToLog } from './debug.js';
 import type { Plugin, ConfigEnv, UserConfig } from 'vite';
-import type { InputOption, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
+import type { InputOption, InputOptions, RenderedChunk } from 'rolldown';
 import { allModuleNames, extensionModuleName } from './ex-defs.js';
 import { cjsAimPlugin, type PluginOptions } from '@collagejs/vite-aim';
 import wjConfig from 'wj-config';
@@ -107,7 +107,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
             };
             const entryFileNames = '[name].js';
             const input: InputOption = {};
-            let preserveEntrySignatures: PreserveEntrySignaturesOption;
+            let preserveEntrySignatures: InputOptions['preserveEntrySignatures'];
             if (viteOpts.command === 'build') {
                 let entryPoints = cssOpt.entryPoints;
                 if (typeof entryPoints === 'string') {
@@ -126,13 +126,13 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
             const fileInfo = path.parse(assetFileNames);
             const cssFileNames = path.join(fileInfo.dir, `cjcss(${cssOpt.projectId})${fileInfo.name}`);
             computedConfig.build = {
-                rollupOptions: {
+                rolldownOptions: {
                     input,
                     preserveEntrySignatures,
                     output: {
                         exports: 'auto',
                         entryFileNames,
-                        ...(!Array.isArray(cfg.build?.rollupOptions?.output) && cfg.build?.rollupOptions?.output),
+                        ...(!Array.isArray(cfg.build?.rolldownOptions?.output) && cfg.build?.rolldownOptions?.output),
                         assetFileNames: ai => {
                             if (ai.names?.some(name => name.endsWith('.css'))) {
                                 return cssFileNames;
