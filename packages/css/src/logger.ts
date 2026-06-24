@@ -25,6 +25,9 @@ let logger: ILogger = console;
  * @param option Desired logging option.
  */
 export function configureLogger(option: boolean | ILogger) {
+    if (option === undefined) {
+        throw new Error("A valid logging option must be provided.  Review your TypeScript settings since the parameter is typed as required and not undefined.");
+    }
     logger = option === true ? console : option === false ? silentLogger : option;
 }
 
