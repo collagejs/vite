@@ -91,7 +91,7 @@ import { Logger } from '@some-package/logger';
 
 **After (using monorepo shared utilities)**:
 ```typescript
-import { someUtility } from '$/utils.js';
+import { someUtility } from '@collagejs/shared';
 ```
 
 ### Step 6: Test the Integration

@@ -49,6 +49,7 @@
     "@collagejs/shared": "*",
     "@microsoft/api-extractor": "^7.58.9",
     "publint": "^0.3.16",
+    "typescript": "^6.0.3",
     "vite-plugin-dts": "^5.0.2",
     "vitest": "^4.1.8"
   },
