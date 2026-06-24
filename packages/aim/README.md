@@ -17,7 +17,7 @@ If you're doing micro-frontends with *CollageJS* and you're using the `@collagej
 
     export default defineConfig({
       plugins: [cjsAimPlugin()],
-      rollupOptions: {
+      rolldownOptions: {
         build: {
           external: ['@my/bare-identifier']
         }
@@ -121,4 +121,4 @@ Configures your preference regarding the banner that shows up in the console tel
 
 This plug-in is great because it allows developers to statically import from bare specifiers while also automatically externalizing anything found in the application's import map.  However, import map information can only be received when the development server runs.  This is not good for building.  For building (bundling), we must still specify the list of externals.
 
-Most likely and until a better way comes up, you'll simply have to repeat the bare identifiers found in the import map in a list here.  This list is merged with the list configured in Vite's `build.rollupOptions.external`, but if possible, just use this setting.
+Most likely and until a better way comes up, you'll simply have to repeat the bare identifiers found in the import map in a list here.  This list is merged with the list configured in Vite's `build.rolldownOptions.external`, but if possible, just use this setting.

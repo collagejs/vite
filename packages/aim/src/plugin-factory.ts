@@ -269,7 +269,7 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
          * Logs information about which modules were externalized based on
          * the import map, useful for debugging and verification.
          * 
-         * @param options - Rollup output options
+         * @param options - Rolldown output options
          * @param bundle - The generated bundle
          */
         generateBundle() {

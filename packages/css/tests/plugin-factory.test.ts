@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { pluginFactory } from '../src/plugin-factory.js';
 import path from 'path';
-import type { OutputBundle, OutputChunk, OutputOptions, PreRenderedAsset, PreserveEntrySignaturesOption } from 'rollup';
+import type { InputOptions, OutputBundle, OutputChunk, OutputOptions, PreRenderedAsset } from 'rolldown';
 import type { ConfigEnv, UserConfig } from 'vite';
 import type { CollageJsCssPluginOptions } from "../src/types.js";
 import { allModuleNames, cssHelpersModuleName, cssLoggerModuleName, extensionModuleName } from '../src/ex-defs.js';
@@ -40,7 +40,7 @@ describe('pluginFactory', () => {
 
         // Assert.
         expect(config.build).to.not.equal(undefined)
-        expect(config.build!.rollupOptions).to.not.equal(undefined);
+        expect(config.build!.rolldownOptions).to.not.equal(undefined);
     });
     const portTest = async (cmd: ConfigEnv['command']) => {
         // Arrange.
@@ -69,13 +69,13 @@ describe('pluginFactory', () => {
         const config = await (plugIn.config as ConfigHandler)({}, env);
 
         // Assert.
-        const input = config?.build?.rollupOptions?.input;
+        const input = config?.build?.rolldownOptions?.input;
         expect(input).to.not.equal(undefined);
         expect(input).to.haveOwnProperty(inputProp);
     };
-    it('Should specify the input "piece" on build under the rollup options.', () => inputTest('piece', 'build'));
-    it('Should specify the input "index" on serve under the rollup options.', () => inputTest('index', 'serve'));
-    const entrySignatureTest = async (viteCmd: ConfigEnv['command'], expectedPropValue: PreserveEntrySignaturesOption) => {
+    it('Should specify the input "piece" on build under the rolldown options.', () => inputTest('piece', 'build'));
+    it('Should specify the input "index" on serve under the rolldown options.', () => inputTest('index', 'serve'));
+    const entrySignatureTest = async (viteCmd: ConfigEnv['command'], expectedPropValue: InputOptions['preserveEntrySignatures']) => {
         // Arrange.
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
         const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
@@ -85,12 +85,12 @@ describe('pluginFactory', () => {
         const config = await (plugIn.config as ConfigHandler)({}, env);
 
         // Assert.
-        const rollupOpts = config?.build?.rollupOptions;
-        expect(rollupOpts).to.not.equal(undefined);
-        expect(rollupOpts?.preserveEntrySignatures).to.equal(expectedPropValue);
+        const rolldownOpts = config?.build?.rolldownOptions;
+        expect(rolldownOpts).to.not.equal(undefined);
+        expect(rolldownOpts?.preserveEntrySignatures).to.equal(expectedPropValue);
     };
-    it('Should set preserveEntrySignatures to "exports-only" on build under the rollup options.', () => entrySignatureTest('build', 'exports-only'));
-    it('Should set preserveEntrySignatures to false on serve under the rollup options.', () => entrySignatureTest('serve', false));
+    it('Should set preserveEntrySignatures to "exports-only" on build under the rolldown options.', () => entrySignatureTest('build', 'exports-only'));
+    it('Should set preserveEntrySignatures to false on serve under the rolldown options.', () => entrySignatureTest('serve', false));
     const fileNamesTest = async (propName: keyof OutputOptions) => {
         // Arrange.
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
@@ -101,13 +101,13 @@ describe('pluginFactory', () => {
         const config = await (plugIn.config as ConfigHandler)({}, env);
 
         // Assert.
-        const outputOpts = config?.build?.rollupOptions?.output;
+        const outputOpts = config?.build?.rolldownOptions?.output;
         expect(outputOpts).to.not.equal(undefined);
         const fileNameSetting = (outputOpts as OutputOptions)[propName];
         expect(fileNameSetting).to.not.match(/\[hash\]/);
     };
     it("Should set the output's entry file names to a hash-less pattern.", () => fileNamesTest('entryFileNames'));
-    it("Should merge the user-provided rollup output options, allowing overrides.", async () => {
+    it("Should merge the user-provided rolldown output options, allowing overrides.", async () => {
         // Arrange.
         const userEntryFileNames = 'custom-entry-[hash].js';
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
@@ -115,7 +115,7 @@ describe('pluginFactory', () => {
         const env: ConfigEnv = { command: 'build', mode: 'development' };
         const userConfig: UserConfig = {
             build: {
-                rollupOptions: {
+                rolldownOptions: {
                     output: {
                         entryFileNames: userEntryFileNames
                     }
@@ -127,8 +127,8 @@ describe('pluginFactory', () => {
         const config = await (plugIn.config as ConfigHandler)(userConfig, env);
 
         // Assert.
-        expect(config?.build?.rollupOptions?.output).to.not.equal(undefined);
-        const entryFileNames = (config!.build!.rollupOptions!.output as OutputOptions).entryFileNames;
+        expect(config?.build?.rolldownOptions?.output).to.not.equal(undefined);
+        const entryFileNames = (config!.build!.rolldownOptions!.output as OutputOptions).entryFileNames;
         expect(entryFileNames).to.equal(userEntryFileNames);
     });
     it("Should not accept overriding of 'assetFileNames'.", async () => {
@@ -139,7 +139,7 @@ describe('pluginFactory', () => {
         const env: ConfigEnv = { command: 'build', mode: 'development' };
         const userConfig: UserConfig = {
             build: {
-                rollupOptions: {
+                rolldownOptions: {
                     output: {
                         assetFileNames: userAssetFileNames
                     }
@@ -151,11 +151,11 @@ describe('pluginFactory', () => {
         const config = await (plugIn.config as ConfigHandler)(userConfig, env);
 
         // Assert.
-        expect(config?.build?.rollupOptions?.output).to.not.equal(undefined);
-        const assetFileNames = (config!.build!.rollupOptions!.output as OutputOptions).assetFileNames;
+        expect(config?.build?.rolldownOptions?.output).to.not.equal(undefined);
+        const assetFileNames = (config!.build!.rolldownOptions!.output as OutputOptions).assetFileNames;
         expect(assetFileNames).to.not.equal(userAssetFileNames);
     });
-    it("Should ignore user-provided rollup output options if they are provided as an array.", async () => {
+    it("Should ignore user-provided rolldown output options if they are provided as an array.", async () => {
         // Arrange.
         const userEntryFileNames = 'custom-entry-[hash].js';
         const options: CollageJsCssPluginOptions = { serverPort: 4111 };
@@ -163,7 +163,7 @@ describe('pluginFactory', () => {
         const env: ConfigEnv = { command: 'build', mode: 'development' };
         const userConfig: UserConfig = {
             build: {
-                rollupOptions: {
+                rolldownOptions: {
                     output: [
                         {
                             entryFileNames: userEntryFileNames
@@ -176,8 +176,8 @@ describe('pluginFactory', () => {
         // Act.
         const config = await (plugIn.config as ConfigHandler)(userConfig, env);
         // Assert.
-        expect(config?.build?.rollupOptions?.output).to.not.equal(undefined);
-        const entryFileNames = (config!.build!.rollupOptions!.output as OutputOptions).entryFileNames;
+        expect(config?.build?.rolldownOptions?.output).to.not.equal(undefined);
+        const entryFileNames = (config!.build!.rolldownOptions!.output as OutputOptions).entryFileNames;
         expect(entryFileNames).to.not.equal(userEntryFileNames);
     });
     const assetFileNameTest = async (pattern: string | undefined, cssExpectation: string, nonCssExpectation: string) => {
@@ -190,7 +190,7 @@ describe('pluginFactory', () => {
         const config = await (plugIn.config as ConfigHandler)({}, env);
 
         // Assert.
-        const fn = (config.build?.rollupOptions?.output as OutputOptions).assetFileNames;
+        const fn = (config.build?.rolldownOptions?.output as OutputOptions).assetFileNames;
         if (typeof fn !== 'function') {
             expect(fn).to.equal(cssExpectation);
             expect(fn).to.equal(nonCssExpectation);
@@ -828,7 +828,7 @@ describe('pluginFactory', () => {
 
         // Assert.
         expect(result).to.not.equal(undefined);
-        const resultingInput = result.build?.rollupOptions?.input;
+        const resultingInput = result.build?.rolldownOptions?.input;
         expect(resultingInput).to.not.equal(undefined);
         expect(resultingInput).to.deep.equal(expects);
     }
@@ -854,6 +854,6 @@ describe('pluginFactory', () => {
         }
     ];
     for (let tc of spaEntryPointsTestData) {
-        it(`Should add the specified entry points as inputs for rollup build.  Inputs: ${tc.inputs}`, () => spaEntryPointsTest(tc.expects, tc.inputs));
+        it(`Should add the specified entry points as inputs for rolldown build.  Inputs: ${tc.inputs}`, () => spaEntryPointsTest(tc.expects, tc.inputs));
     }
 });
