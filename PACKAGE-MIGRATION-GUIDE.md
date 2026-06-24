@@ -46,8 +46,7 @@ Create `packages/your-plugin-name/package.json`:
     "clean": "rimraf dist src/_shared"
   },
   "devDependencies": {
-    "rimraf": "^5.0.5",
-    "typescript": "^6.0.0"
+    "rimraf": "^5.0.5"
   },
   "peerDependencies": {
     "vite": "^8.0.0"
@@ -80,7 +79,7 @@ Under `references`, add the package:
   ...,
   "references": [
     ...
-    { path: "./packages/<package folder>"},
+    { "path": "./packages/<package folder>"},
   ]
 }
 ```
@@ -92,7 +91,7 @@ cd packages/your-plugin-name
 npm install
 ```
 
-### Step 5: Update Import Statements
+### Step 6: Update Import Statements
 
 **If your plugin uses shared utilities**, update import statements in your source files:
 
@@ -107,7 +106,7 @@ import { Logger } from '@some-package/logger';
 import { someUtility } from '@collagejs/shared';
 ```
 
-### Step 6: Test the Integration
+### Step 7: Test the Integration
 
 ```bash
 # From root directory
