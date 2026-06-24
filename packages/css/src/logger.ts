@@ -31,9 +31,8 @@ export function configureLogger(option: boolean | ILogger) {
 /**
  * Obtains a reference to the current logger object.
  * 
- * **NOTE**:  This logger object must have been previously set with a call to `setLogger()`.
  * @returns The current logger object.
  */
-export function getLogger() {
+export function getLogger(): ILogger {
     return logger;
 }
