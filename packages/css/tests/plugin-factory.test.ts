@@ -4,7 +4,7 @@ import path from 'path';
 import type { OutputBundle, OutputChunk, OutputOptions, PreRenderedAsset, PreserveEntrySignaturesOption } from 'rollup';
 import type { ConfigEnv, UserConfig } from 'vite';
 import type { CollageJsCssPluginOptions } from "../src/types.js";
-import { cssHelpersModuleName, extensionModuleName } from '../src/ex-defs.js';
+import { allModuleNames, cssHelpersModuleName, cssLoggerModuleName, extensionModuleName } from '../src/ex-defs.js';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 type ResolveIdHandler = (this: void, source: string) => string;
@@ -273,20 +273,11 @@ describe('pluginFactory', () => {
             text: 'not '
         },
         {
-            source: extensionModuleName,
-            expectedResult: extensionModuleName,
-            text: ''
-        },
-        {
             source: '@collagejs/vite-css',
             expectedResult: null,
             text: 'not '
         },
-        {
-            source: cssHelpersModuleName,
-            expectedResult: cssHelpersModuleName,
-            text: ''
-        }
+        ...allModuleNames.map(name => ({ source: name, expectedResult: name, text: '' }))
     ];
     for (let cmd of viteCommands) {
         for (let tc of exModuleIdResolutionTestData) {
@@ -334,6 +325,11 @@ describe('pluginFactory', () => {
             cmd: 'build',
             moduleId: cssHelpersModuleName,
             expectedModuleName: cssHelpersModuleName.substring(2),
+        },
+        {
+            cmd: 'build',
+            moduleId: cssLoggerModuleName,
+            expectedModuleName: cssLoggerModuleName.substring(2),
         },
         {
             cmd: 'serve',

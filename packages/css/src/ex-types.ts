@@ -33,13 +33,6 @@ export type ILogger = {
  */
 export type CssMountFactoryOptions = {
     /**
-     * Specifies a logger object or a Boolean value that controls what gets logged to the browser's console.
-     * 
-     * Set it to `true` (or don't specify it at all) to log to the browser's console; set it to `false` to turn 
-     * off all logging to the console, or use it to pass a custom logger object to arbitrarily handle logging.
-     */
-    logger?: boolean | ILogger;
-    /**
      * Specifies the amount of time to wait for a CSS LINK element to load before potentially aborting the mount 
      * operation.
      */

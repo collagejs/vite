@@ -1,4 +1,5 @@
-import type { CssMountFactoryOptions, ILogger } from "./ex-types.js";
+import type { CssMountFactoryOptions } from "./ex-types.js";
+import { getLogger } from "./logger.js";
 
 /**
  * Defines the return type of the promises generated to ensure CSS loading before micro-frontend mounting.
@@ -37,49 +38,10 @@ export type LinkLoadResult = {
  * while calling `cssMountFactory()`.
  */
 export const defaultFactoryOptions: Required<CssMountFactoryOptions> = {
-    logger: true,
     loadTimeout: 1500,
     failOnTimeout: false,
     failOnError: false
 };
-
-/**
- * Dud function to implement the silent logger.
- */
-function noop() { };
-
-/**
- * Silent logger used whenever no logging is desired.
- */
-export const silentLogger: ILogger = {
-    debug: noop,
-    info: noop,
-    warn: noop,
-    error: noop
-};
-
-/**
- * Module-level variable for the logger of choice.
- */
-let logger: ILogger;
-
-/**
- * Sets the logger object according to the given logging option.
- * @param option Desired logging option.
- */
-export function setLogger(option: Required<CssMountFactoryOptions>['logger']) {
-    logger = option === true ? console : option === false ? silentLogger : option;
-}
-
-/**
- * Obtains a reference to the current logger object.
- * 
- * **NOTE**:  This logger object must have been previously set with a call to `setLogger()`.
- * @returns The current logger object.
- */
-export function getLogger() {
-    return logger;
-}
 
 /**
  * Create an HTML LINK element for a CSS resource that points to the given CSS URL.
@@ -104,6 +66,7 @@ export function createLinkElement(href: string) {
  */
 export function wireCssLinkElement(el: HTMLLinkElement, cssFileName: string, projectId: string, loadTimeout: number) {
     let rslv: (result: LinkLoadResult) => void;
+    const logger = getLogger();
     const timerId = setTimeout(() => {
         logger.debug('CSS file "%s" for project with ID "%s" timed out and might have failed to load.  %d ms', cssFileName, projectId, loadTimeout);
         rslv({
@@ -149,6 +112,7 @@ export async function processCssPromises(
     cssPromises: Promise<LinkLoadResult>[],
     opts: Required<Pick<CssMountFactoryOptions, 'failOnError' | 'failOnTimeout'>>
 ) {
+    const logger = getLogger();
     try {
         await Promise.all(cssPromises);
     }

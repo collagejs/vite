@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 
 import { type CssMountFactoryOptions, type MountBindOptions } from "./ex-types.js";
-import { createLinkElement, defaultFactoryOptions, getLogger, processCssPromises, setLogger, wireCssLinkElement, type LinkLoadResult } from "./css-helpers.js";
+import { createLinkElement, defaultFactoryOptions, processCssPromises, wireCssLinkElement, type LinkLoadResult } from "./css-helpers.js";
+export { configureLogger } from "./logger.js";
+import { getLogger } from "./logger.js";
 
 let observer: MutationObserver | undefined;
 let autoLinkEls: HTMLLinkElement[] = [];
@@ -17,7 +19,6 @@ export function cssMountFactory(entryPoint: string, options?: CssMountFactoryOpt
         ...defaultFactoryOptions,
         ...options
     };
-    setLogger(opts.logger);
     const cssFileNames = cssMap[entryPoint] ?? [];
 
     return mount;
