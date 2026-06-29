@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { CountControlledData } from './CountControlledData.js';
+import { CountControlledData } from '../src/CountControlledData.js';
 
 describe('CountControlledData', () => {
     describe("constructor", () => {

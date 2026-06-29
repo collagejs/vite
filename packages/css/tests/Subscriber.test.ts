@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Subscriber } from './Subscriber';
+import { Subscriber } from '../src/Subscriber.js';
 
 describe("Subscriber", () => {
     it("Should notify subscribers with the correct arguments.", () => {

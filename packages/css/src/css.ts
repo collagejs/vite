@@ -45,7 +45,7 @@ const entryCounts = Object.keys(cssMap).reduce((acc, key) => {
     acc[key] = new CountControlledData([] as HTMLLinkElement[], {
         onCountExhausted: (controller) => {
             for (let css of controller.data) {
-                css.disabled = !isDynCssInUse(css.href);
+                css.disabled = !isDynCssInUse(css.dataset.mapKey!);
             }
         },
         onCountRestarted: (controller) => {
@@ -109,14 +109,13 @@ function isDynCssInUse(cssFileName: string) {
  */
 function processDynamicCssFile(link: HTMLLinkElement) {
     const logger = getLogger();
-    let cssFileName: keyof typeof dynCssMap;
+    let cssFileName: string | undefined;
     for (let key in dynCssMap) {
         if (link.href.endsWith(key)) {
             cssFileName = key;
             break;
         }
     }
-    // @ts-expect-error TS2454
     if (!cssFileName) {
         // This should never happen, but if it does, it is a CSS file that does have the project ID in its name, but
         // is not registered under any entry file name.  It is best to just leave it alone.  If people complain, then 
@@ -124,6 +123,7 @@ function processDynamicCssFile(link: HTMLLinkElement) {
         logger.debug('A CSS file that matched the project ID "%s" criterion was injected into HEAD, but it is not registered under any entry.  Leaving it enabled and untracked.  File: %s', projectId, link.href);
         return;
     }
+    link.dataset.mapKey = cssFileName;
     const entryNames = dynCssMap[cssFileName]!;
     logger.debug('CSS file with HREF "%s" was injected into HEAD.  It is registered under the following entries: %s', link.href, entryNames.join(', '));
     for (let entryName of entryNames) {
@@ -188,9 +188,9 @@ export function cssMountFactory(entry: string, options?: CssMountFactoryOptions)
                         controller.data.disabled = true;
                     }
                 });
-                lightDomCssMap.set(cssFileName, controlledLink);
                 cssFileCounts[cssFileName] = controlledLink;
             }
+            lightDomCssMap.set(cssFileName, controlledLink);
             controlledLink.increase();
             return controlledLink;
         }
@@ -242,7 +242,9 @@ export function cssMountFactory(entry: string, options?: CssMountFactoryOptions)
  */
 function mountCssFile(cssFileName: string, linkEl: HTMLLinkElement, addFouc: boolean, loadTimeout: number, target: AcceptableTarget, isShadowRoot: boolean) {
     return new Promise<LinkLoadResult>((rslv, _rjct) => {
-        target[isShadowRoot ? 'prepend' : 'appendChild'](linkEl);
+        if (!linkEl.isConnected) {
+            target[isShadowRoot ? 'prepend' : 'appendChild'](linkEl);
+        }
         if (!addFouc) {
             rslv({ status: 'ok' });
             return;

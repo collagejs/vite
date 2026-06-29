@@ -5,6 +5,7 @@ import type { InputOptions, OutputBundle, OutputChunk, OutputOptions, PreRendere
 import type { ConfigEnv, UserConfig } from 'vite';
 import type { CollageJsCssPluginOptions } from "../src/types.js";
 import { allModuleNames, cssHelpersModuleName, cssLoggerModuleName, extensionModuleName } from '../src/ex-defs.js';
+import { CssRecord } from '../src/private-types.js';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 type ResolveIdHandler = (this: void, source: string) => string;
@@ -392,7 +393,7 @@ describe('pluginFactory', () => {
     for (let tc of viteEnvValueReplacementTestData) {
         it(`Should replace the values of "viteEnv" appropriately on ${tc.cmd} with mode "${tc.mode}".`, () => viteEnvValueReplacementTest(tc.cmd, tc.mode));
     }
-    const cssMapInsertionTest = async (bundle: OutputBundle, expectedMap: Record<string, string[]>) => {
+    const cssMapInsertionTest = async (bundle: OutputBundle, expectedMap: Record<string, CssRecord>) => {
         // Arrange.
         const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444 }))[0];
         const env: ConfigEnv = { command: 'build', mode: 'production' };
@@ -704,7 +705,7 @@ describe('pluginFactory', () => {
                 'P': { static: ['P.css', 'c.css'], dynamic: [] }
             }
         },
-    ] as unknown as { chunks: OutputBundle; text: string; expectedMap: Record<string, string[]>; }[];
+    ] as unknown as { chunks: OutputBundle; text: string; expectedMap: Record<string, CssRecord>; }[];
     for (let tc of cssMapInsertionTestData) {
         it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks, tc.expectedMap));
     }
