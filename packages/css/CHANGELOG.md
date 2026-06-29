@@ -1,5 +1,15 @@
 # @collagejs/vite-css
 
+## 0.5.0
+
+### Minor Changes
+
+- d4ad255: feat: Support CSS in shadow DOM
+
+### Patch Changes
+
+- eeaf200: fix: Account for backticks when replacing map in bundled code
+
 ## 0.4.0
 
 ### Minor Changes
