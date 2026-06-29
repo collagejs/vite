@@ -48,11 +48,12 @@ export const defaultFactoryOptions: Required<CssMountFactoryOptions> = {
  * @param href URL to the CSS file.
  * @returns The newly created HTML LINK element (unattached to the document).
  */
-export function createLinkElement(href: string) {
+export function createLinkElement(href: string, isShadowRoot: boolean) {
     const el = globalThis.document.createElement('link');
     el.rel = 'stylesheet';
     el.href = href;
     el.setAttribute('data-cjcss', 'true');
+    el.disabled = !isShadowRoot;
     return el;
 }
 

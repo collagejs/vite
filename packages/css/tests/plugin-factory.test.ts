@@ -5,6 +5,7 @@ import type { InputOptions, OutputBundle, OutputChunk, OutputOptions, PreRendere
 import type { ConfigEnv, UserConfig } from 'vite';
 import type { CollageJsCssPluginOptions } from "../src/types.js";
 import { allModuleNames, cssHelpersModuleName, cssLoggerModuleName, extensionModuleName } from '../src/ex-defs.js';
+import { CssRecord } from '../src/private-types.js';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 type ResolveIdHandler = (this: void, source: string) => string;
@@ -392,7 +393,7 @@ describe('pluginFactory', () => {
     for (let tc of viteEnvValueReplacementTestData) {
         it(`Should replace the values of "viteEnv" appropriately on ${tc.cmd} with mode "${tc.mode}".`, () => viteEnvValueReplacementTest(tc.cmd, tc.mode));
     }
-    const cssMapInsertionTest = async (bundle: OutputBundle, expectedMap: Record<string, string[]>) => {
+    const cssMapInsertionTest = async (bundle: OutputBundle, expectedMap: Record<string, CssRecord>) => {
         // Arrange.
         const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444 }))[0];
         const env: ConfigEnv = { command: 'build', mode: 'production' };
@@ -434,7 +435,10 @@ describe('pluginFactory', () => {
             },
             text: 'A[1]:  a',
             expectedMap: {
-                'A': ['A.css']
+                'A': {
+                    static: ['A.css'],
+                    dynamic: []
+                }
             }
         },
         {
@@ -464,7 +468,10 @@ describe('pluginFactory', () => {
             },
             text: 'A, b[1]:  A->b',
             expectedMap: {
-                'A': ['b.css']
+                'A': {
+                    static: ['b.css'],
+                    dynamic: []
+                }
             }
         },
         {
@@ -505,7 +512,10 @@ describe('pluginFactory', () => {
             },
             text: 'A, b[1], c[1]:  A->bc',
             expectedMap: {
-                'A': ['b.css', 'c.css']
+                'A': {
+                    static: ['b.css', 'c.css'],
+                    dynamic: []
+                }
             }
         },
         {
@@ -546,7 +556,7 @@ describe('pluginFactory', () => {
             },
             text: 'A[1], b[1], c[1]:  A->bc',
             expectedMap: {
-                'A': ['A.css', 'b.css', 'c.css']
+                'A': { static: ['A.css', 'b.css', 'c.css'], dynamic: [] }
             }
         },
         {
@@ -587,7 +597,7 @@ describe('pluginFactory', () => {
             },
             text: 'A[1], b[1], c[1]:  A->bc, b->c',
             expectedMap: {
-                'A': ['A.css', 'b.css', 'c.css']
+                'A': { static: ['A.css', 'b.css', 'c.css'], dynamic: [] }
             }
         },
         {
@@ -639,7 +649,7 @@ describe('pluginFactory', () => {
             },
             text: 'A[1], b[1], c[1], d[1]:  A->bc',
             expectedMap: {
-                'A': ['A.css', 'b.css', 'c.css']
+                'A': { static: ['A.css', 'b.css', 'c.css'], dynamic: [] }
             }
         },
         {
@@ -691,11 +701,11 @@ describe('pluginFactory', () => {
             },
             text: 'A[1], b[1], c[1], P[1]:  A->bc, P->c',
             expectedMap: {
-                'A': ['A.css', 'b.css', 'c.css'],
-                'P': ['P.css', 'c.css']
+                'A': { static: ['A.css', 'b.css', 'c.css'], dynamic: [] },
+                'P': { static: ['P.css', 'c.css'], dynamic: [] }
             }
         },
-    ] as unknown as { chunks: OutputBundle; text: string; expectedMap: Record<string, string[]>; }[];
+    ] as unknown as { chunks: OutputBundle; text: string; expectedMap: Record<string, CssRecord>; }[];
     for (let tc of cssMapInsertionTestData) {
         it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks, tc.expectedMap));
     }
@@ -726,7 +736,7 @@ describe('pluginFactory', () => {
         // Assert.
         const entry = bundle['A.js'] as OutputChunk;
         const calculatedCssMap = JSON.parse(JSON.parse(entry.code));
-        expect(calculatedCssMap).to.deep.equal({ 'A': ['A.css'] });
+        expect(calculatedCssMap).to.deep.equal({ 'A': { static: ['A.css'], dynamic: [] } });
     };
     [
         {

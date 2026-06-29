@@ -15,6 +15,14 @@ export const typesModuleName = './ex-types.js';
  */
 export const cssLoggerModuleName = './logger.js';
 /**
+ * Module name of the subscriber module.
+ */
+export const cssSubscriberModuleName = './Subscriber.js';
+/**
+ * Module name of the count controlled data module.
+ */
+export const cssCountControlledDataModuleName = './CountControlledData.js';
+/**
  * Array of all module names that are dynamically inserted by this plug-in for Vite projects to provide CSS injection.
  */
-export const allModuleNames = [extensionModuleName, cssHelpersModuleName, cssLoggerModuleName];
+export const allModuleNames = [extensionModuleName, cssHelpersModuleName, cssLoggerModuleName, cssSubscriberModuleName, cssCountControlledDataModuleName];

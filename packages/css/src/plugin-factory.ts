@@ -8,6 +8,7 @@ import type { InputOption, InputOptions, RenderedChunk } from 'rolldown';
 import { allModuleNames, extensionModuleName } from './ex-defs.js';
 import { cjsAimPlugin, type PluginOptions } from '@collagejs/vite-aim';
 import wjConfig from 'wj-config';
+import { CssMap } from './private-types.js';
 
 const defaultOptions = {
     localhostSsl: false,
@@ -67,7 +68,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
         /**
          * Map of CSS files for CSS mounting.
          */
-        const cssMap: Record<string, string[]> = {};
+        const cssMap: CssMap = {};
 
         /**
          * Builds a full path using the provided file name and this module's file location.
@@ -183,8 +184,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                 if (lg?.chunks) {
                     await writeToLog("# Chunk Information\n");
                 }
-                for (let x in bundle) {
-                    const chunk = bundle[x];
+                for (let chunk of Object.values(bundle)) {
                     let logData: string = '';
                     try {
                         if (lg?.chunks) {
@@ -193,6 +193,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                         }
                         if (chunk.type === 'chunk' && chunk.isEntry) {
                             const cssFiles = new Set<string>();
+                            const cssDynFiles = new Set<string>();
                             const processedImports = new Set<string>();
                             const collectCssFiles = (curChunk: RenderedChunk | undefined) => {
                                 if (!curChunk) {
@@ -208,10 +209,27 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                                 }
                             };
                             collectCssFiles(chunk);
-                            cssMap[chunk.name] = [];
-                            for (let css of cssFiles.values()) {
-                                cssMap[chunk.name]!.push(css);
-                            }
+                            processedImports.clear();
+                            const collectDynamicCssFiles = (curChunk: RenderedChunk | undefined, first: boolean) => {
+                                if (!curChunk) {
+                                    return;
+                                }
+                                if (!first) {
+                                    curChunk.viteMetadata?.importedCss?.forEach(css => cssDynFiles.add(css));
+                                }
+                                for (let imp of curChunk.dynamicImports || []) {
+                                    if (processedImports.has(imp) || bundle[imp]?.type !== 'chunk') {
+                                        continue;
+                                    }
+                                    processedImports.add(imp);
+                                    collectDynamicCssFiles(bundle[imp], false);
+                                }
+                            };
+                            collectDynamicCssFiles(chunk, true);
+                            cssMap[chunk.name] = {
+                                static: Array.from(cssFiles.values()),
+                                dynamic: Array.from(cssDynFiles.values())
+                            };
                         }
                     }
                     catch (error) {
