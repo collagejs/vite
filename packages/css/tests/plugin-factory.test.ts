@@ -709,7 +709,7 @@ describe('pluginFactory', () => {
     for (let tc of cssMapInsertionTestData) {
         it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks, tc.expectedMap));
     }
-    const cssMapQuotationMarkReplacementTest = async (quote: '"' | "'") => {
+    const cssMapQuotationMarkReplacementTest = async (quote: '"' | "'" | "`") => {
         // Arrange.
         const moduleContent = `${quote}{cjcss:CSS_MAP}${quote}`;
         const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444 }))[0];
@@ -746,7 +746,11 @@ describe('pluginFactory', () => {
         {
             quote: "'" as const,
             text: 'single'  
-        }
+        },
+        {
+            quote: "`" as const,
+            text: 'backtick'  
+        },
     ].forEach(tc => {
         it(`Should correctly replace the CSS Map placeholder when it is wrapped in ${tc.text} quotes.`, () => cssMapQuotationMarkReplacementTest(tc.quote));
     });
