@@ -253,7 +253,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                     if (entry?.type === 'chunk') {
                         entry.code = entry.code
                             ?.replace('{cjcss:PROJECT_ID}', cssOpt.projectId)
-                            .replace(/['"]{cjcss:CSS_MAP}['"]/, stringifiedCssMap);
+                            .replace(/["'`]{cjcss:CSS_MAP}["'`]/, stringifiedCssMap);
                     }
                 }
             },
