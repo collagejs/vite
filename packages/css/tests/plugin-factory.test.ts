@@ -434,7 +434,10 @@ describe('pluginFactory', () => {
             },
             text: 'A[1]:  a',
             expectedMap: {
-                'A': ['A.css']
+                'A': {
+                    static: ['A.css'],
+                    dynamic: []
+                }
             }
         },
         {
@@ -464,7 +467,10 @@ describe('pluginFactory', () => {
             },
             text: 'A, b[1]:  A->b',
             expectedMap: {
-                'A': ['b.css']
+                'A': {
+                    static: ['b.css'],
+                    dynamic: []
+                }
             }
         },
         {
@@ -505,7 +511,10 @@ describe('pluginFactory', () => {
             },
             text: 'A, b[1], c[1]:  A->bc',
             expectedMap: {
-                'A': ['b.css', 'c.css']
+                'A': {
+                    static: ['b.css', 'c.css'],
+                    dynamic: []
+                }
             }
         },
         {
@@ -546,7 +555,7 @@ describe('pluginFactory', () => {
             },
             text: 'A[1], b[1], c[1]:  A->bc',
             expectedMap: {
-                'A': ['A.css', 'b.css', 'c.css']
+                'A': { static: ['A.css', 'b.css', 'c.css'], dynamic: [] }
             }
         },
         {
@@ -587,7 +596,7 @@ describe('pluginFactory', () => {
             },
             text: 'A[1], b[1], c[1]:  A->bc, b->c',
             expectedMap: {
-                'A': ['A.css', 'b.css', 'c.css']
+                'A': { static: ['A.css', 'b.css', 'c.css'], dynamic: [] }
             }
         },
         {
@@ -639,7 +648,7 @@ describe('pluginFactory', () => {
             },
             text: 'A[1], b[1], c[1], d[1]:  A->bc',
             expectedMap: {
-                'A': ['A.css', 'b.css', 'c.css']
+                'A': { static: ['A.css', 'b.css', 'c.css'], dynamic: [] }
             }
         },
         {
@@ -691,8 +700,8 @@ describe('pluginFactory', () => {
             },
             text: 'A[1], b[1], c[1], P[1]:  A->bc, P->c',
             expectedMap: {
-                'A': ['A.css', 'b.css', 'c.css'],
-                'P': ['P.css', 'c.css']
+                'A': { static: ['A.css', 'b.css', 'c.css'], dynamic: [] },
+                'P': { static: ['P.css', 'c.css'], dynamic: [] }
             }
         },
     ] as unknown as { chunks: OutputBundle; text: string; expectedMap: Record<string, string[]>; }[];
@@ -726,7 +735,7 @@ describe('pluginFactory', () => {
         // Assert.
         const entry = bundle['A.js'] as OutputChunk;
         const calculatedCssMap = JSON.parse(JSON.parse(entry.code));
-        expect(calculatedCssMap).to.deep.equal({ 'A': ['A.css'] });
+        expect(calculatedCssMap).to.deep.equal({ 'A': { static: ['A.css'], dynamic: [] } });
     };
     [
         {
