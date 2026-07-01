@@ -62,7 +62,7 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
                 return acc + '/' + part;
             }
             return acc;
-        }, '');
+        }, '') || '/';
     }
 
     /**
@@ -104,15 +104,18 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
             };
 
             const stockPathExceptions = [
-                joinPaths('/@vite/client'),
+                '/@vite/client',
             ];
 
-            const allPathExceptions = [...new Set([...stockPathExceptions, ...pathExceptions.map(p => joinPaths(p))])];
+            const allPathExceptions = [...new Set([
+                ...stockPathExceptions,
+                ...pathExceptions
+            ])].map(ex => new RegExp(`^${joinPaths(ex)}(?:\\?.*)?$`));
 
             /**
              * Helper: Determines if this is a JavaScript request that should be blocked
              */
-            const shouldBlockJavaScriptRequest = (req: Connect.IncomingMessage): boolean => {
+            const shouldBlockHttpRequest = (req: Connect.IncomingMessage): boolean => {
                 // Only block in development mode
                 if (config.command !== 'serve') {
                     return false;
@@ -128,7 +131,7 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
                 }
 
                 // Path exceptions.
-                if (allPathExceptions.some(ex => new RegExp(`^${ex}(?:\\?.*)?$`).test(req.url ?? ''))) {
+                if (allPathExceptions.some(ex => ex.test(req.url ?? ''))) {
                     return false;
                 }
                 return true;
@@ -211,12 +214,13 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
                 }
             });
 
-            // Request blocking middleware - blocks JS requests until import map received
+            // Request blocking middleware - blocks HTTP requests until import map received
             devServer.middlewares.use(async (req, _res, next) => {
-                if (!shouldBlockJavaScriptRequest(req)) {
+                if (!shouldBlockHttpRequest(req)) {
                     next();
+                    return;
                 }
-                logger.warn(`Blocking JS request until the import map is received: ${fmt.url(req.url)}`, { timestamp: true });
+                logger.warn(`Blocking HTTP request until the import map is received: ${fmt.url(req.url)}`, { timestamp: true });
                 try {
                     // Wait for import map event with timeout
                     const waitResponse = await ManualResetEvent.waitAsync(importMapReadyEvent.token, importMapTimeout);
