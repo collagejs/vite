@@ -1,5 +1,11 @@
 # @collagejs/vite-aim
 
+## 0.2.1
+
+### Patch Changes
+
+- 40a2c0a: fix: Ensure unresolved relative, absolute and full URLs are not marked external
+
 ## 0.2.0
 
 ### Minor Changes
