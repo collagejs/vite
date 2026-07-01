@@ -1,5 +1,11 @@
 # @collagejs/vite-aim
 
+## 0.2.2
+
+### Patch Changes
+
+- 792d144: fix: Correct issue around path exceptions and blocking MW
+
 ## 0.2.1
 
 ### Patch Changes
