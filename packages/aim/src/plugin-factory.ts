@@ -253,7 +253,7 @@ export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
         resolveId(id, _importer) {
             // Check if we have a mapping (for logging purposes)
             const resolved = resolveFromImportMap(id);
-            if (resolved === null) {
+            if (resolved === null || resolved === id) {
                 return null;
             }
             externalizedModules.add(resolved || id);
