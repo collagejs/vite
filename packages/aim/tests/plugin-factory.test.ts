@@ -323,6 +323,90 @@ describe("cjsAimPlugin", () => {
                 expect(next).toHaveBeenCalledOnce();
             });
         });
+        describe("Module Resolution", () => {
+            let handler: Connect.SimpleHandleFunction;
+            let plugin: Awaited<ReturnType<typeof preparePlugin>>;
+            beforeAll(async () => {
+                devServer = await createServer();
+                plugin = await preparePlugin();
+                // @ts-expect-error TS2684
+                await (plugin.configureServer as ServerHook)(devServer);
+                handler = devServer.middlewares.stack.find(m => m.route === defaultImportMapEndpoint)?.handle as Connect.SimpleHandleFunction;
+            });
+            test.each([
+                {
+                    text: "resolve",
+                    id: 'abc',
+                    expected: { id: '/abs.js', external: true }
+                },
+                {
+                    text: "not resolve",
+                    id: '/@vite/client',
+                    expected: null
+                },
+                {
+                    text: "not resolve",
+                    id: '/@vite/env',
+                    expected: null
+                },
+                {
+                    text: "not resolve",
+                    id: 'http://example.com',
+                    expected: null
+                },
+                {
+                    text: "not resolve",
+                    id: 'http://example.com/abc',
+                    expected: null
+                },
+                {
+                    text: "not resolve",
+                    id: './ab/cd',
+                    expected: null
+                },
+                {
+                    text: "not resolve",
+                    id: '@bare/id',
+                    expected: null
+                },
+            ])("Should $text identifier $id .", async ({ id, expected }) => {
+                const im = JSON.stringify({
+                    imports: {
+                        'abc': '/abs.js'
+                    }
+                });
+                const req: Connect.IncomingMessage = {
+                    method: "POST",
+                    url: defaultImportMapEndpoint,
+                    headers: {
+                        origin: 'http://localhost'
+                    },
+                    on: (event: string, callback: (data?: string) => void) => {
+                        if (event === 'data') {
+                            callback(im);
+                        }
+                        else if (event === 'end') {
+                            callback();
+                        }
+                    },
+                } as Connect.IncomingMessage;
+                const res = {
+                    statusCode: 0,
+                    writeHead: vi.fn(),
+                    end: vi.fn()
+                } as unknown as ServerResponse;
+                handler(req, res);
+                expect(res.writeHead).toHaveBeenCalledWith(200, {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                });
+                expect(res.end).toHaveBeenCalledOnce();
+                const resolved = await (plugin.resolveId as ViteResolveIdHookFn)(id, undefined, { ssr: false });
+                expect(resolved).toEqual(expected);
+            });
+        });
     });
     describe("resolveId", () => {
         test.each<{
