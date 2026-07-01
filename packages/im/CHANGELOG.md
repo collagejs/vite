@@ -1,5 +1,13 @@
 # @collagejs/vite-im
 
+## 0.2.1
+
+### Patch Changes
+
+- 50f5aca: fix: Ensure IMO UI options script is inserted and carries the base
+- Updated dependencies [40a2c0a]
+  - @collagejs/vite-aim@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
