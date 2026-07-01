@@ -1,6 +1,6 @@
 {
   "name": "@collagejs/vite-im",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Vite plug-in that injects an import map and @collagejs/imo to the project's HTML page",
   "keywords": [
     "importmap",
@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "@collagejs/imo": "0.x || 1.x",
-    "@collagejs/vite-aim": "0.2.1",
+    "@collagejs/vite-aim": "0.2.2",
     "wj-config": "^4.0.0-beta.0 || ^4"
   }
 }

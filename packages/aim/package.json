@@ -1,6 +1,6 @@
 {
   "name": "@collagejs/vite-aim",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Vite plug-in that automatically externalizes anything specified in the application's import map",
   "type": "module",
   "main": "./dist/index.js",

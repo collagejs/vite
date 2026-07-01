@@ -1,6 +1,6 @@
 {
   "name": "@collagejs/vite-css",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Vite plug-in for automatic CSS injection in CollageJS micro-frontends",
   "keywords": [
     "micro-frontend",
@@ -52,7 +52,7 @@
   },
   "dependencies": {
     "@collagejs/core": "0.x || 1.x",
-    "@collagejs/vite-aim": "0.2.1",
+    "@collagejs/vite-aim": "0.2.2",
     "wj-config": "^4.0.0-beta.0"
   },
   "devDependencies": {

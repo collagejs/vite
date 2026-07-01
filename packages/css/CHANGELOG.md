@@ -1,5 +1,12 @@
 # @collagejs/vite-css
 
+## 0.5.2
+
+### Patch Changes
+
+- Updated dependencies [792d144]
+  - @collagejs/vite-aim@0.2.2
+
 ## 0.5.1
 
 ### Patch Changes
