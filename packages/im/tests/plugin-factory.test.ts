@@ -4,8 +4,9 @@ import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, MinimalPlugi
 import type { CollageJsImPluginOptions, ImportMapsOption } from "../src/types.js";
 import type { PathLike } from 'fs';
 import type { ImportMap } from '@collagejs/importmap';
-import { ImoUiOptions } from '@collagejs/imo';
+import type { ImoUiFactoryOptions } from '@collagejs/imo';
 import type { PluginOptions } from '@collagejs/vite-aim';
+import { imoUiOptionsId } from '@collagejs/imo/const';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 
@@ -85,7 +86,6 @@ describe('pluginFactory', () => {
         const ctx = { path: '', filename: '' };
 
         // Act.
-        plugin.transformIndexHtml
         const xForm = await asHandlerDef(plugin.transformIndexHtml).handler('', ctx);
 
         // Assert.
@@ -730,7 +730,7 @@ describe('pluginFactory', () => {
             it(`Should ${tc.text1}include the "@collagejs/imo" UI script when the "imoUi" property is not explicitly set on ${cmd} and there are ${tc.text2}import maps.`, () => imoUiDefaultsTest(cmd, tc.importMap));
         }
     }
-    const imoUiIncludeTest = async (viteCmd: ConfigEnv['command'], imoUi: boolean | ImoUiOptions | undefined, expectToExist: boolean) => {
+    const imoUiIncludeTest = async (viteCmd: ConfigEnv['command'], imoUi: boolean | ImoUiFactoryOptions | undefined, expectToExist: boolean) => {
         const fileExists = () => true;
         const importMap = {
             imports: {
@@ -766,7 +766,7 @@ describe('pluginFactory', () => {
             throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
         }
     };
-    const imoUiIncludeTestData: (boolean | ImoUiOptions | undefined)[] = [
+    const imoUiIncludeTestData: (boolean | ImoUiFactoryOptions | undefined)[] = [
         undefined,
         true,
         {}
@@ -777,6 +777,111 @@ describe('pluginFactory', () => {
         }
         it(`Should not include "@collagejs/imo"' UI script when the "imoUi" property is set to false on ${cmd}.`, () => imoUiIncludeTest(cmd, false, false));
     }
+    describe("IMO UI Options", () => {
+        for (let cmd of viteCommands) {
+            ([
+                true,
+                {},
+            ] as (boolean | ImoUiFactoryOptions)[]).forEach((imoUi) => {
+                it(`Should insert the IMO UI options script tag into the HTML page when the 'imoUi' property is set to ${JSON.stringify(imoUi)} during ${cmd}.`, async () => {
+                    // Arrange.
+                    const fileExists = () => true;
+                    const importMap = {
+                        imports: {
+                            '@a/b': 'cd'
+                        },
+                        scopes: {}
+                    };
+                    const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
+                    const pluginOptions: CollageJsImPluginOptions = { imoUi };
+                    const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
+                    const env: ConfigEnv = { command: cmd, mode: 'development' };
+                    await (plugin.config as ConfigHandler)({}, env);
+                    const ctx = { path: '', filename: '' };
+
+                    // Act.
+                    const xForm = await asHandlerDef(plugin.transformIndexHtml).handler('', ctx);
+
+                    // Assert.
+                    expect(xForm).to.not.equal(null);
+                    expect(xForm).to.not.equal(undefined);
+                    if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                        expect(xForm.tags.length).toBeGreaterThan(0);
+                        const tag = searchTag(xForm.tags, 'script', { type: 'application/json', id: imoUiOptionsId });
+                        expect(tag).to.not.equal(undefined);
+                    }
+                    else {
+                        throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+                    }
+                });
+            });
+            it(`Should always include the "base" UI factory option during ${cmd}.`, async () => {
+                // Arrange.
+                const fileExists = () => true;
+                const importMap = {
+                    imports: {
+                        '@a/b': 'cd'
+                    },
+                    scopes: {}
+                };
+                const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
+                const plugin = (await pluginFactory(readFile, fileExists)())[0];
+                const env: ConfigEnv = { command: cmd, mode: 'development' };
+                await (plugin.config as ConfigHandler)({}, env);
+                const ctx = { path: '', filename: '' };
+
+                // Act.
+                const xForm = await asHandlerDef(plugin.transformIndexHtml).handler('', ctx);
+
+                // Assert.
+                expect(xForm).to.not.equal(null);
+                expect(xForm).to.not.equal(undefined);
+                if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                    expect(xForm.tags.length).toBeGreaterThan(0);
+                    const tag = searchTag(xForm.tags, 'script', { type: 'application/json', id: imoUiOptionsId });
+                    expect(tag).to.not.equal(undefined);
+                    const options: ImoUiFactoryOptions = JSON.parse(tag!.children as string);
+                    expect(options.base).toBeDefined();
+                }
+                else {
+                    throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+                }
+            });
+            it(`Should allow the "base" UI factory option to be overridden during ${cmd}.`, async () => {
+                // Arrange.
+                const fileExists = () => true;
+                const importMap = {
+                    imports: {
+                        '@a/b': 'cd'
+                    },
+                    scopes: {}
+                };
+                const readFile = (() => Promise.resolve(JSON.stringify(importMap))) as unknown as Parameters<typeof pluginFactory>[0];
+                const pluginOptions = { imoUi: { base: '/custom-base' } } satisfies CollageJsImPluginOptions;
+                const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
+                const env: ConfigEnv = { command: cmd, mode: 'development' };
+                await (plugin.config as ConfigHandler)({}, env);
+                const ctx = { path: '', filename: '' };
+
+                // Act.
+                const xForm = await asHandlerDef(plugin.transformIndexHtml).handler('', ctx);
+
+                // Assert.
+                expect(xForm).to.not.equal(null);
+                expect(xForm).to.not.equal(undefined);
+                if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                    expect(xForm.tags.length).toBeGreaterThan(0);
+                    const tag = searchTag(xForm.tags, 'script', { type: 'application/json', id: imoUiOptionsId });
+                    expect(tag).to.not.equal(undefined);
+                    const options: ImoUiFactoryOptions = JSON.parse(tag!.children as string);
+                    expect(options.base).toBe(pluginOptions.imoUi.base);
+                }
+                else {
+                    throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+                }
+            });
+        }
+    });
     describe("AIM Plug-In", () => {
         afterEach(() => {
             mockedAimPlugin.mockClear();
