@@ -1,4 +1,4 @@
-import type { ImPostingOptions, ImoUiOptions } from "@collagejs/imo";
+import type { ImPostingOptions, ImoUiFactoryOptions } from "@collagejs/imo";
 
 /**
  * Defines the possible options for import maps in root projects.
@@ -59,7 +59,7 @@ export type CollageJsImPluginOptions = {
      * 
      * @default true
      */
-    imoUi?: boolean | ImoUiOptions;
+    imoUi?: boolean | ImoUiFactoryOptions;
     /**
      * Controls the inclusion of the @collagejs/vite-aim plug-in.  When `false`, the AIM plug-in is not injected.
      * @default true

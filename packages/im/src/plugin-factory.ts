@@ -5,6 +5,7 @@ import type { ImportMap } from "@collagejs/importmap";
 import { cjsAimPlugin, type PluginOptions } from '@collagejs/vite-aim';
 import wjConfig from 'wj-config';
 import { imoUiOptionsId, imPostingOptionsId } from '@collagejs/imo/const';
+import type { ImoUiFactoryOptions } from '@collagejs/imo';
 
 export const defaultDevImportMap = 'src/importMap.dev.json';
 export const defaultBuildImportMap = 'src/importMap.json';
@@ -169,17 +170,21 @@ export function pluginFactory(
                     });
                 }
                 if (imOpt.imoUi && importMap) {
-                    if (typeof imOpt.imoUi === 'object') {
-                        tags.push({
-                            tag: `script`,
-                            attrs: {
-                                type: 'application/json',
-                                id: imoUiOptionsId
-                            },
-                            children: JSON.stringify(imOpt.imoUi),
-                            injectTo: 'head'
-                        });
+                    const uiOptions: ImoUiFactoryOptions = typeof imOpt.imoUi === 'object' ?
+                        imOpt.imoUi :
+                        {};
+                    if (uiOptions.base === undefined) {
+                        uiOptions.base = imoUrl.substring(0, imoUrl.lastIndexOf('/') + 1);
                     }
+                    tags.push({
+                        tag: `script`,
+                        attrs: {
+                            type: 'application/json',
+                            id: imoUiOptionsId
+                        },
+                        children: JSON.stringify(uiOptions),
+                        injectTo: 'head'
+                    });
                     tags.push({
                         tag: 'script',
                         attrs: {
