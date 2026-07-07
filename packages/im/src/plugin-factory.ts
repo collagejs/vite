@@ -55,6 +55,7 @@ export function pluginFactory(
                     (fileCfg ?? defaultFile) :
                     (fileCfg ?? defaultBuildImportMap);
                 if (!fileExists(mapFile)) {
+                    console.warn(`Import map file ${mapFile} does not exist.  No import map will be injected into the HTML page.`);
                     return null;
                 }
                 const contents = await readFile(mapFile, {
@@ -223,6 +224,7 @@ export function pluginFactory(
                 return cfg;
             })
             .build();
+        console.log('imOpt', imOpt);
         let aimOpt: PluginOptions | undefined;
         if (imOpt.aim !== false) {
             aimOpt = await wjConfig()
