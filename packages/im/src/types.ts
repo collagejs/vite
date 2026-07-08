@@ -1,6 +1,12 @@
 import type { ImPostingOptions, ImoUiFactoryOptions } from "@collagejs/imo";
 
 /**
+ * Utility type that defines a type that is either `T` or `U`, but not both.
+ */
+export type Xor<T, U> =
+  | (T & { [K in keyof U]?: never })
+  | (U & { [K in keyof T]?: never });
+/**
  * Defines the possible options for import maps in root projects.
  */
 export type ImportMapsOption = {
