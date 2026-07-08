@@ -50,6 +50,22 @@ export interface CollageJsAimPluginOptions {
      */
     importMap?: ImportMap | undefined;
     /**
+     * Whether to externalize module identifiers by their import map ID or by their resolved path.
+     * 
+     * > ⚠️ Only has an effect when the `importMap` option is specified while in build mode.  If there is no import 
+     * map to work with, this option plays no part in the externalization process.  Works in serve mode as long as 
+     * Vite's development server receives an import map to work with (usually provided by `@collagejs/imo`).
+     * 
+     * ### Possible Values
+     * 
+     * - `'id'`:  Externalize by import map ID.  This is what most projects require.  The project continues to need
+     * the import map at runtime.
+     * - `'resolved'`:  Externalize by resolved path.  This option should remove the need for an import map at runtime,
+     * but it may not work for all projects.  Use this option with care.
+     * @default 'id'
+     */
+    externalizationMode?: 'id' | 'resolved';
+    /**
      * Predicate function to determine if a request should be blocked based on its URL.
      * 
      * **⚠️ BE CAREFUL**:  This can bring the entire development server to a halt if misused.  Use this option with
