@@ -6,7 +6,7 @@ import { closeLog, formatData, markdownCodeBlock, openLog, writeToLog } from './
 import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, InputOptions, RenderedChunk } from 'rolldown';
 import { allModuleNames, extensionModuleName } from './ex-defs.js';
-import { cjsAimPlugin, type PluginOptions } from '@collagejs/vite-aim';
+import { cjsAimPlugin, type CollageJsAimPluginOptions } from '@collagejs/vite-aim';
 import wjConfig from 'wj-config';
 import { CssMap } from './private-types.js';
 
@@ -23,9 +23,9 @@ const defaultOptions = {
  * @param readFileFn Function used to read files.
  * @returns The plug-in factory function.
  */
-export function pluginFactory(readFileFn?: typeof fs.readFile): (config: CollageJsCssPluginOptions, aimOptions?: PluginOptions) => Promise<[Plugin, Plugin | null]> {
+export function pluginFactory(readFileFn?: typeof fs.readFile): (config: CollageJsCssPluginOptions, aimOptions?: CollageJsAimPluginOptions) => Promise<[Plugin, Plugin | null]> {
     const readFile = readFileFn ?? fs.readFile;
-    return async (config: CollageJsCssPluginOptions, aimOptions?: PluginOptions) => {
+    return async (config: CollageJsCssPluginOptions, aimOptions?: CollageJsAimPluginOptions) => {
         const cssOpt = await wjConfig()
             .addObject(config as CollageJsCssPluginOptions)
             .postMerge(async cfg => {
