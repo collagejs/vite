@@ -1,6 +1,6 @@
 import { promises as fs, existsSync } from 'fs';
 import type { HtmlTagDescriptor, ConfigEnv, Plugin } from 'vite';
-import type { CollageJsImPluginOptions, ImportMapsOption } from './types.js';
+import type { CollageJsImPluginOptions, ImportMapsOption, Xor } from './types.js';
 import type { ImportMap } from "@collagejs/importmap";
 import { cjsAimPlugin, type CollageJsAimPluginOptions } from '@collagejs/vite-aim';
 import wjConfig from 'wj-config';
@@ -33,10 +33,10 @@ export const defaultOptions = {
 export function pluginFactory(
     readFileFn?: typeof fs.readFile,
     fileExistsFn?: typeof existsSync
-): (options?: CollageJsImPluginOptions | CollageJsAimPluginOptions, aimOptions?: CollageJsAimPluginOptions) => Promise<[Plugin, Plugin | null]> {
+): (options?: Xor<CollageJsImPluginOptions, CollageJsAimPluginOptions>, aimOptions?: CollageJsAimPluginOptions) => Promise<[Plugin, Plugin | null]> {
     const readFile = readFileFn ?? fs.readFile;
     const fileExists = fileExistsFn ?? existsSync;
-    return async (options?: CollageJsImPluginOptions | CollageJsAimPluginOptions, aimOptions?: CollageJsAimPluginOptions) => {
+    return async (options?: Xor<CollageJsImPluginOptions, CollageJsAimPluginOptions>, aimOptions?: CollageJsAimPluginOptions) => {
         /**
          * Set in config() and is used to preserve Vite command information.
          */
