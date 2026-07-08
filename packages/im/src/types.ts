@@ -48,7 +48,7 @@ export type ImoSpec = {
 export type CollageJsImPluginOptions = {
     /**
      * Specifies the type and import map files to inject into the HTML page's HEAD element.
-     * @default 'src/importMap.json'
+     * @default { dev: 'src/importMap.dev.json', build: 'src/importMap.json' }
      */
     importMaps?: ImportMapsSpec | undefined;
     /**
