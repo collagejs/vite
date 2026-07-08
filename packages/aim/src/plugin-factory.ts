@@ -39,6 +39,7 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
         importMapTimeout = 2_000, // 2 seconds
         logLevel = undefined,
         banner = true,
+        externalizationMode = 'id',
     } = options;
 
     let config: ResolvedConfig;
@@ -263,9 +264,10 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
             if (resolved === null || resolved === id) {
                 return null;
             }
-            externalizedModules.add(resolved || id);
+            const finalId = externalizationMode === 'resolved' ? resolved : id;
+            externalizedModules.add(finalId);
             return {
-                id: resolved || id,
+                id: finalId,
                 external: true
             };
         },
