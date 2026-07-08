@@ -1,5 +1,13 @@
 # @collagejs/vite-aim
 
+## 0.3.0
+
+### Minor Changes
+
+- d5568e0: feat(aim): Add the shouldBlock option
+- 2fb43f4: chore: Rename AIM plugin options type to CollageJsAimPluginOptions
+- dbae4d2: feat(aim): Add the extenalizationMode option
+
 ## 0.2.2
 
 ### Patch Changes
