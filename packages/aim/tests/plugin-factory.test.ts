@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeAll, beforeEach } from "vitest";
+import { describe, test, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { cjsAimPlugin, defaultImportMapEndpoint, pluginName } from "../src/plugin-factory";
 import { createServer } from "vite";
 import type { ConfigEnv, ResolvedConfig, ServerHook, ViteDevServer, Connect } from "vite";
@@ -321,6 +321,65 @@ describe("cjsAimPlugin", () => {
                 const next = vi.fn();
                 handler(req, res, next);
                 expect(next).toHaveBeenCalledOnce();
+            });
+            describe('shouldBlock', async () => {
+                const shouldBlockFn = vi.fn();
+                beforeAll(async () => {
+                    devServer = await createServer();
+                    const plugin = await preparePlugin({ importMapTimeout: 150, pathExceptions: [pathEx], shouldBlock: shouldBlockFn });
+                    // @ts-expect-error TS2684
+                    await(plugin.configureServer as ServerHook)(devServer);
+                    // @ts-expect-error
+                    handler = devServer.middlewares.stack.find(m => m.handle.name === '' && m.route === '')?.handle as Connect.NextHandleFunction;
+                });
+                afterEach(() => {
+                    shouldBlockFn.mockReset();
+                });
+                test("Should use the 'shouldBlock' option if provided.", async () => {
+                    const req: Connect.IncomingMessage = {
+                        method: 'GET',
+                        url: 'some/code.js'
+                    } as Connect.IncomingMessage;
+                    shouldBlockFn.mockReturnValue(false);
+                    const next = vi.fn();
+                    handler(req, res, next);
+                    expect(shouldBlockFn).toHaveBeenCalledOnce();
+                    expect(shouldBlockFn).toHaveBeenCalledWith(req, expect.any(Function));
+                });
+                test("Should block the request if 'shouldBlock' returns true.", async () => {
+                    const req: Connect.IncomingMessage = {
+                        method: 'GET',
+                        url: 'some/code.js'
+                    } as Connect.IncomingMessage;
+                    shouldBlockFn.mockReturnValue(true);
+                    const next = vi.fn();
+                    const p = handler(req, res, next);
+                    expect(next).not.toHaveBeenCalled();
+                    await p;
+                    expect(next).toHaveBeenCalledOnce();
+                });
+                test("Should not block the request if 'shouldBlock' returns false.", async () => {
+                    const req: Connect.IncomingMessage = {
+                        method: 'GET',
+                        url: 'some/code.js'
+                    } as Connect.IncomingMessage;
+                    shouldBlockFn.mockReturnValue(false);
+                    const next = vi.fn();
+                    handler(req, res, next);
+                    expect(next).toHaveBeenCalledOnce();
+                });
+                test("Should give the stock predicate function to 'shouldBlock' as the second argument.", async () => {
+                    const req: Connect.IncomingMessage = {
+                        method: 'GET',
+                        url: 'some/code.js'
+                    } as Connect.IncomingMessage;
+                    shouldBlockFn.mockReturnValue(false);
+                    const next = vi.fn();
+                    handler(req, res, next);
+                    expect(shouldBlockFn).toHaveBeenCalledOnce();
+                    const stockPredicate = shouldBlockFn.mock.calls[0][1];
+                    expect(typeof stockPredicate).toBe('function');
+                });
             });
         });
         describe("Module Resolution", () => {

@@ -1,4 +1,4 @@
-import type { LogLevel } from "vite";
+import type { Connect, LogLevel } from "vite";
 import type { ImportMap } from "@collagejs/importmap";
 
 /**
@@ -49,4 +49,16 @@ export interface CollageJsAimPluginOptions {
      * @default undefined
      */
     importMap?: ImportMap | undefined;
+    /**
+     * Predicate function to determine if a request should be blocked based on its URL.
+     * 
+     * **⚠️ BE CAREFUL**:  This can bring the entire development server to a halt if misused.  Use this option with
+     * care and try to always rely on the stock predicate function provided by the plug-in.
+     * @param request The incoming HTTP request object.
+     * @param stockPredicate The default predicate function provided by the plug-in, which applies all documented rules
+     * and behaviors.
+     * @returns A boolean indicating whether the request should be blocked (`true`) or allowed (`false`).
+     * @default undefined
+     */
+    shouldBlock?: (request: Connect.IncomingMessage, stockPredicate: () => boolean) => boolean;
 }

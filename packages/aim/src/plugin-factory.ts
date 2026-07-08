@@ -216,7 +216,10 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
 
             // Request blocking middleware - blocks HTTP requests until import map received
             devServer.middlewares.use(async (req, _res, next) => {
-                if (!shouldBlockHttpRequest(req)) {
+                const shouldBlock = options.shouldBlock ?
+                    (r: Connect.IncomingMessage) => options.shouldBlock!(r, () => shouldBlockHttpRequest(r)) :
+                    shouldBlockHttpRequest;
+                if (!shouldBlock(req)) {
                     next();
                     return;
                 }
