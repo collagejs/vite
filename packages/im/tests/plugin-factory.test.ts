@@ -5,7 +5,7 @@ import type { CollageJsImPluginOptions, ImportMapsOption } from "../src/types.js
 import type { PathLike } from 'fs';
 import type { ImportMap } from '@collagejs/importmap';
 import type { ImoUiFactoryOptions } from '@collagejs/imo';
-import type { PluginOptions } from '@collagejs/vite-aim';
+import type { CollageJsAimPluginOptions } from '@collagejs/vite-aim';
 import { imoUiOptionsId } from '@collagejs/imo/const';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
@@ -202,7 +202,7 @@ describe('pluginFactory', () => {
     for (let tc of defaultImportMapTestData) {
         it(`Should pick the contents of the default file "${tc.fileName}" if the file exists on ${tc.viteCmd} as the contents of the import map script.`, () => defaultImportMapTest(tc.fileName, tc.viteCmd));
     }
-    const importMapTest = async (propertyName: Exclude<keyof ImportMapsOption, 'type'>, viteCmd: ConfigEnv['command']) => {
+    it.each(viteCommands)("Should pick the contents of the single import map file specified if the file exists on %s as the contents of the import map script.", async (viteCmd) => {
         // Arrange.
         const fileName = 'customImportMap.json';
         const fileExists = (x: PathLike) => x === fileName;
@@ -224,8 +224,54 @@ describe('pluginFactory', () => {
             }
             return Promise.resolve(JSON.stringify(importMap));
         }) as Parameters<typeof pluginFactory>[0];
-        const pluginOptions: CollageJsImPluginOptions = { importMaps: {} };
-        pluginOptions.importMaps![propertyName] = fileName;
+        const pluginOptions = { importMaps: fileName };
+        const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
+        const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+        await(plugin.config as ConfigHandler)({}, env);
+        const ctx = { path: '', filename: '' };
+
+        // Act.
+        const xForm = await asHandlerDef(plugin.transformIndexHtml).handler('', ctx);
+
+        // Assert.
+        expect(fileRead).to.equal(true);
+        expect(xForm).to.not.equal(null);
+        expect(xForm).to.not.equal(undefined);
+        if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+            const firstTag = xForm.tags[0];
+            expect(firstTag).to.not.equal(undefined);
+            expect(firstTag!.tag).to.equal('script');
+            const parsedImportMap = JSON.parse(firstTag!.children as string);
+            expect(parsedImportMap).to.be.deep.equal(importMap);
+        }
+        else {
+            throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+        }
+    });
+    const importMapTest = async (propertyName: keyof ImportMapsOption, viteCmd: ConfigEnv['command']) => {
+        // Arrange.
+        const fileName = 'customImportMap.json';
+        const fileExists = (x: PathLike) => x === fileName;
+        const importMap = {
+            imports: {
+                '@a/b': 'cd'
+            },
+            scopes: {
+                pickyModule: {
+                    '@a/b': 'ef'
+                }
+            },
+            integrity: {}
+        };
+        let fileRead = false;
+        const readFile = ((x: string) => {
+            if (x === fileName) {
+                fileRead = true;
+            }
+            return Promise.resolve(JSON.stringify(importMap));
+        }) as Parameters<typeof pluginFactory>[0];
+        const pluginOptions = { importMaps: {} as ImportMapsOption };
+        pluginOptions.importMaps[propertyName] = fileName;
         const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
@@ -249,7 +295,7 @@ describe('pluginFactory', () => {
             throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
         }
     };
-    const importMapTestData: { propertyName: Exclude<keyof ImportMapsOption, 'type'>, viteCmd: ConfigEnv['command'] }[] = [
+    const importMapTestData: { propertyName: keyof ImportMapsOption, viteCmd: ConfigEnv['command'] }[] = [
         {
             propertyName: 'dev',
             viteCmd: 'serve'
@@ -262,7 +308,7 @@ describe('pluginFactory', () => {
     for (let tc of importMapTestData) {
         it(`Should pick the contents of the specified file in the "importMaps.${tc.propertyName}" configuration property on ${tc.viteCmd}.`, () => importMapTest(tc.propertyName, tc.viteCmd));
     }
-    const importMapTestMultiple = async (map1: ImportMap, map2: ImportMap, expectedMap: ImportMap, propertyName: Exclude<keyof ImportMapsOption, 'type'>, viteCmd: ConfigEnv['command']) => {
+    const importMapTestMultiple = async (map1: ImportMap, map2: ImportMap, expectedMap: ImportMap, propertyName: keyof ImportMapsOption, viteCmd: ConfigEnv['command']) => {
         // Arrange.
         expectedMap.integrity = {};
         const fileNames = ['A.json', 'B.json'];
@@ -278,8 +324,8 @@ describe('pluginFactory', () => {
             }
             return Promise.resolve(JSON.stringify(importMaps[x]));
         }) as Parameters<typeof pluginFactory>[0];
-        const pluginOptions: CollageJsImPluginOptions = { importMaps: {} };
-        pluginOptions.importMaps![propertyName] = fileNames;
+        const pluginOptions = { importMaps: {} as ImportMapsOption };
+        pluginOptions.importMaps[propertyName] = fileNames;
         const plugin = (await pluginFactory(readFile, fileExists)(pluginOptions))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugin.config as ConfigHandler)({}, env);
@@ -307,7 +353,7 @@ describe('pluginFactory', () => {
         map1: ImportMap,
         map2: ImportMap,
         expectedMap: ImportMap,
-        propertyName: Exclude<keyof ImportMapsOption, 'type'>,
+        propertyName: keyof ImportMapsOption,
         viteCmd: ConfigEnv['command']
     }[] = [
             {
@@ -1009,7 +1055,7 @@ describe('pluginFactory', () => {
         });
         it("Should allow passing AIM options via the first argument of the plug-in factory.", async () => {
             // Arrange.
-            const aimOptions: PluginOptions = { banner: false, allowedOrigins: ['https://example.com'] };
+            const aimOptions: CollageJsAimPluginOptions = { banner: false, allowedOrigins: ['https://example.com'] };
             const fileExists = () => false;
 
             // Act.
@@ -1018,6 +1064,54 @@ describe('pluginFactory', () => {
             // Assert.
             expect(plugin).toBeTruthy();
             expect(mockedAimPlugin.mock.calls[0][0]).toEqual(expect.objectContaining(aimOptions));
+        });
+        it.each([
+            {
+                text: 'there is no import map',
+                fileExists: false,
+                options: { imo: true },
+                shouldConfigure: true,
+                confText: 'configure'
+            },
+            {
+                text: 'there is no IMO script',
+                fileExists: true,
+                options: { imo: false },
+                shouldConfigure: true,
+                confText: 'configure'
+            },
+            {
+                text: 'there is an import map and an IMO script',
+                fileExists: true,
+                options: { imo: true },
+                shouldConfigure: false,
+                confText: 'not configure'
+            }
+        ])("Should $confText AIM's 'shouldBlock' option to always return false if $text .", async ({ fileExists, options, shouldConfigure }) => {
+            // Arrange.
+            const fileExistsFn = () => fileExists;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+            };
+            const readFile = (() => {
+                return Promise.resolve(JSON.stringify(importMap));
+            }) as unknown as Parameters<typeof pluginFactory>[0];
+
+            // Act.
+            const plugin = (await pluginFactory(readFile, fileExistsFn)(options))[1];
+
+            // Assert.
+            expect(plugin).toBeTruthy();
+            const shouldBlockFn = mockedAimPlugin.mock.calls[0][0].shouldBlock;
+            if (shouldConfigure) {
+                expect(shouldBlockFn).toBeDefined();
+                expect(shouldBlockFn()).toBe(false);
+            }
+            else {
+                expect(shouldBlockFn).toBeUndefined();
+            }
         });
     });
 });
