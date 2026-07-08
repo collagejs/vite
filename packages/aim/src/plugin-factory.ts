@@ -2,7 +2,7 @@ import { createLogger, type Connect, type Logger, type Plugin, type ResolvedConf
 import { ManualResetEvent } from '@wjfe/async-workers';
 import pc from "picocolors";
 import { fmt, showCollageBanner } from "@collagejs/shared";
-import type { PluginOptions } from './types.js';
+import type { CollageJsAimPluginOptions } from './types.js';
 import { resolver, type ImportMap, type Resolver } from '@collagejs/importmap';
 
 /**
@@ -31,7 +31,7 @@ export const defaultImportMapEndpoint = '/__import_map';
  * @param options - Configuration options for the plugin
  * @returns Vite plugin object
  */
-export function cjsAimPlugin(options: PluginOptions = {}): Plugin {
+export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
     const {
         importMapEndpoint = defaultImportMapEndpoint,
         allowedOrigins = [], // Developer must specify allowed origins

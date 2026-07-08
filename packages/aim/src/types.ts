@@ -4,7 +4,7 @@ import type { ImportMap } from "@collagejs/importmap";
 /**
  * Configuration options for the @collagejs/vite-aim plug-in.
  */
-export interface PluginOptions {
+export interface CollageJsAimPluginOptions {
     /**
      * HTTP endpoint path for receiving import map data.
      * @default '/__import_map'
