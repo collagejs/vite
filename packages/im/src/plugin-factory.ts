@@ -1,6 +1,6 @@
 import { promises as fs, existsSync } from 'fs';
 import type { HtmlTagDescriptor, ConfigEnv, Plugin } from 'vite';
-import type { CollageJsImPluginOptions, ImportMapsOption, Xor } from './types.js';
+import type { CollageJsImPluginOptions, Xor } from './types.js';
 import type { ImportMap } from "@collagejs/importmap";
 import { cjsAimPlugin, type CollageJsAimPluginOptions } from '@collagejs/vite-aim';
 import wjConfig from 'wj-config';
@@ -19,7 +19,6 @@ export const defaultBuildImportMap = 'src/importMap.json';
 export const defaultOptions = {
     aim: true,
     imo: true,
-    importMaps: {} as ImportMapsOption,
 };
 
 /**
@@ -43,37 +42,47 @@ export function pluginFactory(
         let viteEnv: ConfigEnv;
 
         /**
+         * Calculates the import map files that are pertinent to the occasion.  The calculation is based on the Vite 
+         * command and the `importMaps` property of the plug-in options.
+         * @param command Vite command.
+         * @returns An array of file names and a Boolean value that tells whether the file exists.
+         */
+        function getImportMapFiles(command: ConfigEnv['command']) {
+            let fileCfg = typeof imOpt.importMaps === 'string' || Array.isArray(imOpt.importMaps) ?
+                imOpt.importMaps : command === 'serve' ?
+                    imOpt.importMaps?.dev : imOpt.importMaps?.build;
+            const devDefaultFile = fileExists(defaultDevImportMap) ? defaultDevImportMap : defaultBuildImportMap;
+            if (fileCfg === undefined || typeof fileCfg === 'string') {
+                const mapFile = command === 'serve' ?
+                    (fileCfg ?? devDefaultFile) :
+                    (fileCfg ?? defaultBuildImportMap);
+                return [{
+                    file: mapFile,
+                    exists: fileExists(mapFile)
+                }];
+            }
+            return fileCfg.map(f => ({
+                file: f,
+                exists: fileExists(f)
+            }));
+        }
+
+        /**
          * Loads the import map files (JSON files) that are pertinent to the occasion.
          * @param command Vite command (serve or build).
          * @returns An array of string values, where each value is the content of one import map file.
          */
         async function loadImportMaps(command: ConfigEnv['command']) {
-            let fileCfg = command === 'serve' ? imOpt.importMaps?.dev : imOpt.importMaps?.build;
-            const defaultFile = fileExists(defaultDevImportMap) ? defaultDevImportMap : defaultBuildImportMap;
-            if (fileCfg === undefined || typeof fileCfg === 'string') {
-                const mapFile = command === 'serve' ?
-                    (fileCfg ?? defaultFile) :
-                    (fileCfg ?? defaultBuildImportMap);
-                if (!fileExists(mapFile)) {
-                    console.warn(`Import map file ${mapFile} does not exist.  No import map will be injected into the HTML page.`);
-                    return null;
+            const files = getImportMapFiles(command);
+            const contents = [] as string[];
+            for (let f of files) {
+                if (!f.exists) {
+                    continue;
                 }
-                const contents = await readFile(mapFile, {
-                    encoding: 'utf8'
-                }) as string;
-                return [contents];
+                const content = await readFile(f.file, { encoding: 'utf8' });
+                contents.push(content);
             }
-            else {
-                const fileContents: string[] = [];
-                for (let f of fileCfg) {
-                    if (!fileExists(f)) {
-                        continue;
-                    }
-                    const contents = await readFile(f, { encoding: 'utf8' }) as string;
-                    fileContents.push(contents);
-                }
-                return fileContents.length > 0 ? fileContents : null;
-            }
+            return contents.length > 0 ? contents : null;
         }
 
         /**
@@ -241,6 +250,13 @@ export function pluginFactory(
                     const im = await buildImportMap('build');
                     if (im) {
                         cfg.importMap = im;
+                    }
+                    if (!imOpt.imo || !getImportMapFiles('serve').some(f => f.exists)) {
+                        cfg.shouldBlock = () => {
+                            // Since there will be no IMO script or no import map,
+                            // blocking requests is pointless.
+                            return false;
+                        }
                     }
                     return cfg;
                 })

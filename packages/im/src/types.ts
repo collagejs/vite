@@ -21,6 +21,11 @@ export type ImportMapsOption = {
 };
 
 /**
+ * Defines the full set of options that are accepted for import maps in root projects.
+ */
+export type ImportMapsSpec = ImportMapsOption | string | string[];
+
+/**
  * Defines the various ways the source for `@collagejs/imo` can be specified.
  */
 export type ImoSource = boolean | string | (() => string);
@@ -43,9 +48,9 @@ export type ImoSpec = {
 export type CollageJsImPluginOptions = {
     /**
      * Specifies the type and import map files to inject into the HTML page's HEAD element.
-     * @default { build: "importmap.json" }
+     * @default 'src/importMap.json'
      */
-    importMaps?: ImportMapsOption | undefined;
+    importMaps?: ImportMapsSpec | undefined;
     /**
      * Controls the inclusion of the `@collagejs/imo` package.  If set to `true`, or not specified at all, 
      * `@collagejs/imo` will be included using the package's latest version.  In order to include a specific 
