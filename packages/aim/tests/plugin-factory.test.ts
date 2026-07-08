@@ -3,7 +3,7 @@ import { cjsAimPlugin, defaultImportMapEndpoint, pluginName } from "../src/plugi
 import { createServer } from "vite";
 import type { ConfigEnv, ResolvedConfig, ServerHook, ViteDevServer, Connect } from "vite";
 import type { ServerResponse } from "http";
-import { PluginOptions } from "../src";
+import { CollageJsAimPluginOptions } from "../src";
 
 type ViteConfigResolvedHookFn = (config: ResolvedConfig) => void | Promise<void>;
 type ViteResolveIdHookFn = (id: string, importer?: string, options?: { ssr?: boolean }) => Promise<{ id: string; external: true } | null | undefined>;
@@ -45,7 +45,7 @@ describe("cjsAimPlugin", () => {
             // Clear any middleware.
             devServer.middlewares.stack = [];
         });
-        const preparePlugin = async (pluginOptions?: PluginOptions, base?: string) => {
+        const preparePlugin = async (pluginOptions?: CollageJsAimPluginOptions, base?: string) => {
             base ??= '/';
             const plugin = cjsAimPlugin(pluginOptions);
             await (plugin.configResolved as ViteConfigResolvedHookFn)({ base, command: "serve" } as ResolvedConfig);

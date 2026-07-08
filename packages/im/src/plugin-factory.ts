@@ -2,7 +2,7 @@ import { promises as fs, existsSync } from 'fs';
 import type { HtmlTagDescriptor, ConfigEnv, Plugin } from 'vite';
 import type { CollageJsImPluginOptions, ImportMapsOption } from './types.js';
 import type { ImportMap } from "@collagejs/importmap";
-import { cjsAimPlugin, type PluginOptions } from '@collagejs/vite-aim';
+import { cjsAimPlugin, type CollageJsAimPluginOptions } from '@collagejs/vite-aim';
 import wjConfig from 'wj-config';
 import { imoUiOptionsId, imPostingOptionsId } from '@collagejs/imo/const';
 import type { ImoUiFactoryOptions } from '@collagejs/imo';
@@ -33,10 +33,10 @@ export const defaultOptions = {
 export function pluginFactory(
     readFileFn?: typeof fs.readFile,
     fileExistsFn?: typeof existsSync
-): (options?: CollageJsImPluginOptions | PluginOptions, aimOptions?: PluginOptions) => Promise<[Plugin, Plugin | null]> {
+): (options?: CollageJsImPluginOptions | CollageJsAimPluginOptions, aimOptions?: CollageJsAimPluginOptions) => Promise<[Plugin, Plugin | null]> {
     const readFile = readFileFn ?? fs.readFile;
     const fileExists = fileExistsFn ?? existsSync;
-    return async (options?: CollageJsImPluginOptions | PluginOptions, aimOptions?: PluginOptions) => {
+    return async (options?: CollageJsImPluginOptions | CollageJsAimPluginOptions, aimOptions?: CollageJsAimPluginOptions) => {
         /**
          * Set in config() and is used to preserve Vite command information.
          */
@@ -202,7 +202,7 @@ export function pluginFactory(
             };
         }
 
-        function isImOptions(opt: CollageJsImPluginOptions | PluginOptions | undefined): opt is CollageJsImPluginOptions {
+        function isImOptions(opt: CollageJsImPluginOptions | CollageJsAimPluginOptions | undefined): opt is CollageJsImPluginOptions {
             if (!opt) {
                 return false;
             }
@@ -224,8 +224,7 @@ export function pluginFactory(
                 return cfg;
             })
             .build();
-        console.log('imOpt', imOpt);
-        let aimOpt: PluginOptions | undefined;
+        let aimOpt: CollageJsAimPluginOptions | undefined;
         if (imOpt.aim !== false) {
             aimOpt = await wjConfig()
                 .addObject({
@@ -233,7 +232,7 @@ export function pluginFactory(
                 })
                 .addObject(() => Promise.resolve(aimOptions!))
                 .when(() => !!aimOptions && !isImOptions(options))
-                .addObject(() => Promise.resolve(options as PluginOptions))
+                .addObject(() => Promise.resolve(options as CollageJsAimPluginOptions))
                 .when(() => !isImOptions(options) && !!options)
                 .postMerge(async (cfg) => {
                     if (cfg.importMap) {
