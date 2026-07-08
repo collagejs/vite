@@ -1,5 +1,18 @@
 # @collagejs/vite-css
 
+## 0.6.0
+
+### Minor Changes
+
+- 2fb43f4: chore: Rename AIM plugin options type to CollageJsAimPluginOptions
+
+### Patch Changes
+
+- Updated dependencies [d5568e0]
+- Updated dependencies [2fb43f4]
+- Updated dependencies [dbae4d2]
+  - @collagejs/vite-aim@0.3.0
+
 ## 0.5.2
 
 ### Patch Changes
