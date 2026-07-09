@@ -56,7 +56,7 @@
     "wj-config": "^4.0.0-beta.0"
   },
   "devDependencies": {
-    "@types/node": "^25.0.2",
+    "@types/node": "^26.1.1",
     "publint": "^0.3.16",
     "rimraf": "^6.1.2",
     "vitest": "^4.1.9"
