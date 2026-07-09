@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
+import { describe, test, expect, vi, beforeAll, beforeEach, afterEach, type Mock } from "vitest";
 import { cjsAimPlugin, defaultImportMapEndpoint, pluginName } from "../src/plugin-factory";
 import { createServer } from "vite";
 import type { ConfigEnv, ResolvedConfig, ServerHook, ViteDevServer, Connect } from "vite";
@@ -100,9 +100,16 @@ describe("cjsAimPlugin", () => {
                     'Access-Control-Allow-Headers': 'Content-Type'
                 });
             });
-            test("Should return a 405 response for HTTP requests that are not OPTIONS or POST.", () => {
+            test.each([
+                'GET',
+                'PUT',
+                'PATCH',
+                'HEAD',
+                'TRACE',
+                'CONNECT',
+            ])("Should return a 405 response for HTTP %s requests.", (method) => {
                 const req: Connect.IncomingMessage = {
-                    method: "GET",
+                    method,
                     url: defaultImportMapEndpoint
                 } as Connect.IncomingMessage;
                 const res = {
@@ -208,6 +215,62 @@ describe("cjsAimPlugin", () => {
                 });
                 expect(res.end).toHaveBeenCalledOnce();
             });
+            test("Should return a 200 response for DELETE requests.", () => {
+                const req: Connect.IncomingMessage = {
+                    method: "DELETE",
+                    url: defaultImportMapEndpoint,
+                    headers: {
+                        origin: 'http://localhost'
+                    }
+                } as Connect.IncomingMessage;
+                const res = {
+                    statusCode: 0,
+                    writeHead: vi.fn(),
+                    end: vi.fn()
+                } as unknown as ServerResponse;
+                handler(req, res);
+                expect(res.writeHead).toHaveBeenCalledWith(200, {
+                    'Content-Type': 'application/json',
+                });
+                expect(res.end).toHaveBeenCalledOnce();
+                expect(JSON.parse((res.end as unknown as Mock).mock.calls[0][0])).toEqual({
+                    success: true,
+                    externalizedModulesDeleted: expect.any(Number)
+                });
+            });
+            test.each([
+                'POST',
+                'DELETE',
+            ])("Should return a 403 response for %s requests from unauthorized origins.", (method) => {
+                const im = JSON.stringify({
+                    imports: { }
+                });
+                const req: Connect.IncomingMessage = {
+                    method,
+                    url: defaultImportMapEndpoint,
+                    headers: {
+                        origin: 'http://unauthorized.com'
+                    },
+                    on: vi.fn((event, callback) => {
+                        if (event === 'data') {
+                            callback(im);
+                        }
+                        else if (event === 'end') {
+                            callback();
+                        }
+                    }),
+                } as unknown as Connect.IncomingMessage;
+                const res = {
+                    statusCode: 0,
+                    writeHead: vi.fn(),
+                    end: vi.fn()
+                } as unknown as ServerResponse;
+                handler(req, res);
+                expect(res.writeHead).toHaveBeenCalledWith(403, {
+                    'Content-Type': 'application/json',
+                });
+                expect(res.end).toHaveBeenCalledOnce();
+            });
         });
         describe("Blocking Middleware", () => {
             let handler: Connect.NextHandleFunction;
@@ -215,7 +278,7 @@ describe("cjsAimPlugin", () => {
             const pathEx = '/let/me/pass';
             beforeAll(async () => {
                 devServer = await createServer();
-                const plugin = await preparePlugin({ importMapTimeout: 150, pathExceptions: [pathEx] });
+                const plugin = await preparePlugin({ importMapTimeout: 0, pathExceptions: [pathEx] });
                 // @ts-expect-error TS2684
                 await (plugin.configureServer as ServerHook)(devServer);
                 // @ts-expect-error
@@ -323,6 +386,40 @@ describe("cjsAimPlugin", () => {
                 const next = vi.fn();
                 handler(req, res, next);
                 expect(next).toHaveBeenCalledOnce();
+            });
+            test("Should go back to blocking requests if the import map is deleted.", async () => {
+                await postImportMap();
+                const req1: Connect.IncomingMessage = {
+                    method: 'GET',
+                    url: 'some/code.js'
+                } as Connect.IncomingMessage;
+                const next1 = vi.fn();
+                const p1 = handler(req1, res, next1);
+                expect(next1).toHaveBeenCalledOnce();
+                await p1;
+                const deleteReq: Connect.IncomingMessage = {
+                    method: 'DELETE',
+                    url: defaultImportMapEndpoint,
+                    headers: {
+                        origin: 'http://localhost'
+                    },
+                } as Connect.IncomingMessage;
+                const deleteRes = {
+                    statusCode: 0,
+                    writeHead: vi.fn(),
+                    end: vi.fn()
+                } as unknown as ServerResponse;
+                await imHandler(deleteReq, deleteRes);
+                expect(deleteRes.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+                const req2: Connect.IncomingMessage = {
+                    method: 'GET',
+                    url: 'some/code.js'
+                } as Connect.IncomingMessage;
+                const next2 = vi.fn();
+                const p2 = handler(req2, res, next2);
+                expect(next2).not.toHaveBeenCalled();
+                await p2;
+                expect(next2).toHaveBeenCalledOnce();
             });
             describe('shouldBlock', async () => {
                 const shouldBlockFn = vi.fn();
@@ -466,9 +563,6 @@ describe("cjsAimPlugin", () => {
                     });
                     expect(res.end).toHaveBeenCalledOnce();
                     const resolved = await (plugin.resolveId as ViteResolveIdHookFn)(id, undefined, { ssr: false });
-                    if (expected && mode === 'id') {
-                        expected.id = id;
-                    }
                     expect(resolved).toEqual(expected);
                 });
             });
@@ -500,7 +594,7 @@ describe("cjsAimPlugin", () => {
                 }
                 expect(resolved).toEqual(expected);
             });
-            test(`Should externalize by returning the ${mode === 'id' ? 'same ID' : 'resolved ID'} while in '${mode}' externalization mode.`, async () => {
+            test(`Should externalize by returning the ${mode === 'id' ? 'same ID' : 'resolved ID'} while in '${mode}' externalization mode and Vite's build mode.`, async () => {
                 const plugin = cjsAimPlugin({ importMap: { imports: { 'foo': '/foo.js' } }, externalizationMode: mode });
                 await (plugin.configResolved as ViteConfigResolvedHookFn)({ command: 'build' } as ResolvedConfig);
                 const resolved = await (plugin.resolveId as ViteResolveIdHookFn)('foo', undefined, { ssr: false });

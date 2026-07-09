@@ -45,7 +45,7 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
     let config: ResolvedConfig;
     let importMapResolver: Resolver | undefined;
     let logger: Logger;
-    const externalizedModules = new Set<string>();
+    const externalizedModules = new Map<string, string>();
 
     // ManualResetEvent to coordinate request blocking/unblocking
     const importMapReadyEvent = new ManualResetEvent(); // Initially unsignaled
@@ -138,11 +138,20 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
                 return true;
             };
 
-            // Import map endpoint - receives POST from @collagejs/imo
-            devServer.middlewares.use(importMapEndpoint, (req, res) => {
-                if (req.method === 'POST') {
-                    const origin = req.headers.origin || req.headers.referer;
+            function deleteImportMap() { 
+                importMapResolver = undefined;
+                const totalExternalized = externalizedModules.size;
+                externalizedModules.clear();
+                devServer.moduleGraph.invalidateAll();
+                importMapReadyEvent.reset();
+                logger.info(fmt.success(`Import map deleted. All subsequent requests will be blocked until a new import map is received.`), { timestamp: true });
+                return totalExternalized;
+            }
 
+            // Import map endpoint - receives POST and DELETE from @collagejs/imo
+            devServer.middlewares.use(importMapEndpoint, async (req, res) => {
+                const origin = req.headers?.origin || req.headers?.referer;
+                if (req.method === 'POST' || req.method === 'DELETE') {
                     // Security check
                     if (!isOriginAllowed(origin)) {
                         logger.warn(`Rejected import map from unauthorized origin: ${pc.red(origin)}`, { timestamp: true });
@@ -150,7 +159,13 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
                         res.end(JSON.stringify({ error: 'Origin not allowed' }));
                         return;
                     }
-
+                }
+                if (req.method === 'DELETE') {
+                    const totalExternalized = deleteImportMap();
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true, externalizedModulesDeleted: totalExternalized }));
+                }
+                else if (req.method === 'POST') {
                     let body = '';
                     req.on('data', chunk => {
                         body += chunk.toString();
@@ -264,8 +279,8 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
             if (resolved === null || resolved === id) {
                 return null;
             }
-            const finalId = externalizationMode === 'resolved' ? resolved : id;
-            externalizedModules.add(finalId);
+            const finalId = externalizationMode === 'resolved' || config.command === 'serve' ? resolved : id;
+            externalizedModules.set(id, finalId);
             return {
                 id: finalId,
                 external: true
