@@ -46,7 +46,7 @@
     "vite": "^8.1.0"
   },
   "devDependencies": {
-    "@types/node": "^25.0.3",
+    "@types/node": "^26.1.1",
     "publint": "^0.3.16",
     "rimraf": "^6.1.2",
     "vitest": "^4.1.9"
