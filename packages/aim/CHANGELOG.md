@@ -1,5 +1,11 @@
 # @collagejs/vite-aim
 
+## 0.4.0
+
+### Minor Changes
+
+- f1b082e: feat(aim): Allow HTTP DELETE request on import map endpoint
+
 ## 0.3.0
 
 ### Minor Changes
