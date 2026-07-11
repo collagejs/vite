@@ -202,7 +202,7 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
                             res.writeHead(200, {
                                 'Content-Type': 'application/json',
                                 'Access-Control-Allow-Origin': '*',
-                                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                                'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
                                 'Access-Control-Allow-Headers': 'Content-Type'
                             });
                             res.end(JSON.stringify({ success: true, imports: importCount }));
@@ -216,7 +216,7 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
                     // Handle CORS preflight
                     res.writeHead(204, {
                         'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                        'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
                         'Access-Control-Allow-Headers': 'Content-Type'
                     });
                     res.end();
@@ -224,7 +224,7 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
                     // Method not allowed
                     res.writeHead(405, {
                         'Content-Type': 'application/json',
-                        'Allow': 'POST, OPTIONS'
+                        'Allow': 'POST, DELETE, OPTIONS'
                     });
                     res.end(JSON.stringify({ error: 'Method not allowed' }));
                 }
@@ -256,6 +256,30 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
             });
 
             // Show CollageJS banner if enabled
+            if (banner) {
+                showCollageBanner();
+            }
+        },
+
+        configurePreviewServer(previewServer) {
+            previewServer.middlewares.use(importMapEndpoint, async (req, res) => {
+                // Do the bare minimum just to say all is OK.
+                if (req.method === 'OPTIONS') { 
+                    res.writeHead(204, {
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type'
+                    });
+                    res.end();
+                    return;
+                }
+                res.writeHead(204, {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                });
+                res.end();
+            });
             if (banner) {
                 showCollageBanner();
             }
