@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeAll, beforeEach, afterEach, type Mock } from "vitest";
 import { cjsAimPlugin, defaultImportMapEndpoint, pluginName } from "../src/plugin-factory";
 import { createServer } from "vite";
-import type { ConfigEnv, ResolvedConfig, ServerHook, ViteDevServer, Connect } from "vite";
+import type { ConfigEnv, ResolvedConfig, ServerHook, ViteDevServer, Connect, PreviewServerHook } from "vite";
 import type { ServerResponse } from "http";
 import type { CollageJsAimPluginOptions } from "../src/types.js";
 
@@ -96,7 +96,7 @@ describe("cjsAimPlugin", () => {
                 handler(req, res);
                 expect(res.writeHead).toHaveBeenCalledWith(204, {
                     'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type'
                 });
             });
@@ -120,7 +120,7 @@ describe("cjsAimPlugin", () => {
                 handler(req, res);
                 expect(res.writeHead).toHaveBeenCalledWith(405, {
                     'Content-Type': 'application/json',
-                    'Allow': 'POST, OPTIONS',
+                    'Allow': 'POST, DELETE, OPTIONS',
                 });
                 expect(res.end).toHaveBeenCalledOnce();
             });
@@ -154,7 +154,7 @@ describe("cjsAimPlugin", () => {
                 expect(res.writeHead).toHaveBeenCalledWith(200, {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                    'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
                     'Access-Control-Allow-Headers': 'Content-Type'
                 });
                 expect(res.end).toHaveBeenCalledOnce();
@@ -558,7 +558,7 @@ describe("cjsAimPlugin", () => {
                     expect(res.writeHead).toHaveBeenCalledWith(200, {
                         'Content-Type': 'application/json',
                         'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                        'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
                         'Access-Control-Allow-Headers': 'Content-Type'
                     });
                     expect(res.end).toHaveBeenCalledOnce();
@@ -604,6 +604,81 @@ describe("cjsAimPlugin", () => {
                 else {
                     expect(resolved).toEqual({ id: '/foo.js', external: true });
                 }
+            });
+        });
+    });
+    describe('configurePreviewServer', () => { 
+        test("Should return 204 for OPTIONS requests.", async () => {
+            const plugin = cjsAimPlugin();
+            await (plugin.configResolved as ViteConfigResolvedHookFn)({ command: 'serve' } as ResolvedConfig);
+            const req: Connect.IncomingMessage = {
+                method: "OPTIONS",
+                url: defaultImportMapEndpoint
+            } as Connect.IncomingMessage;
+            const res = {
+                statusCode: 0,
+                writeHead: vi.fn(),
+                end: vi.fn()
+            } as unknown as ServerResponse;
+            let endpoint: string;
+            let handler: Connect.SimpleHandleFunction;
+            const previewServer = {
+                middlewares: {
+                    use: (ep: string, h: Connect.SimpleHandleFunction) => {
+                        endpoint = ep;
+                        handler = h;
+                    }
+                }
+            };
+            // @ts-expect-error TS2684 We don't care about the "this" object.
+            await (plugin.configurePreviewServer as PreviewServerHook)(previewServer);
+            handler!(req, res);
+            expect(endpoint!).toBe(defaultImportMapEndpoint);
+            expect(res.writeHead).toHaveBeenCalledWith(204, {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            });
+        });
+        test.each([
+            'POST',
+            'DELETE',
+            'GET',
+            'PUT',
+            'PATCH',
+            'HEAD',
+            'TRACE',
+            'CONNECT'
+        ])("Should return 204 for %s requests.", async (method) => {
+            const plugin = cjsAimPlugin();
+            await (plugin.configResolved as ViteConfigResolvedHookFn)({ command: 'serve' } as ResolvedConfig);
+            const req: Connect.IncomingMessage = {
+                method,
+                url: defaultImportMapEndpoint
+            } as Connect.IncomingMessage;
+            const res = {
+                statusCode: 0,
+                writeHead: vi.fn(),
+                end: vi.fn()
+            } as unknown as ServerResponse;
+            let endpoint: string;
+            let handler: Connect.SimpleHandleFunction;
+            const previewServer = {
+                middlewares: {
+                    use: (ep: string, h: Connect.SimpleHandleFunction) => {
+                        endpoint = ep;
+                        handler = h;
+                    }
+                }
+            };
+            // @ts-expect-error TS2684 We don't care about the "this" object.
+            await (plugin.configurePreviewServer as PreviewServerHook)(previewServer);
+            handler!(req, res);
+            expect(endpoint!).toBe(defaultImportMapEndpoint);
+            expect(res.writeHead).toHaveBeenCalledWith(204, {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
             });
         });
     });
