@@ -1,5 +1,11 @@
 # @collagejs/vite-aim
 
+## 0.5.0
+
+### Minor Changes
+
+- 3fe4412: feat(aim): Add dummy middleware to preview server
+
 ## 0.4.0
 
 ### Minor Changes
