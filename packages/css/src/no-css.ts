@@ -5,8 +5,8 @@ const noCss = () => Promise.resolve();
 export class CssFactory {
     instantiate() { 
         return {
-            mount: () => noCss(),
-            relocate: noCss
+            mount: () => noCss,
+            relocate: () => noCss
         }
     }
 };

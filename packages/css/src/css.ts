@@ -148,9 +148,11 @@ function observeHead() {
             }
         });
     });
-    observer.observe(globalThis?.document?.head, {
-        childList: true
-    });
+    if (globalThis?.document?.head) {
+        observer.observe(globalThis.document.head, {
+            childList: true
+        });
+    }
     return observer;
 }
 /**
@@ -182,8 +184,7 @@ const lastSegmentRegex = /\/([^/]+)\.js([#?].*$|$)/;
  */
 export class CssFactory {
     /**
-     * Base URL used to resolve the CSS file names.  This is derived from the Vite environment variable `BASE_URL` and
-     * can be overridden by the constructor parameter `baseUrl`.
+     * Base URL used to resolve the CSS file names.  This is derived from the module URL given to the constructor.
      */
     #baseUrl = import.meta.env.BASE_URL;
     /**
@@ -351,8 +352,9 @@ export class CssFactory {
 
         async function relocate(this: undefined, source: AcceptableTarget, target: AcceptableTarget): ReturnType<RelocateFn> {
             // If moving from light DOM to light DOM, or from shadow DOM to shadow DOM, then there's no extra work needed.
-            if ((source instanceof ShadowRoot && target instanceof ShadowRoot) ||
-                (source instanceof DocumentFragment && target instanceof DocumentFragment)) {
+            const sourceIsShadow = source instanceof ShadowRoot;
+            const targetIsShadow = target instanceof ShadowRoot;
+            if (sourceIsShadow === targetIsShadow) {
                 return 'supported';
             }
             // For crossing from light DOM to shadow DOM, or from shadow DOM to light DOM, the general process is to

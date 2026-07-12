@@ -1,7 +1,7 @@
 import { describe, test, expect } from "vitest";
 
 describe("index", () => { 
-    test("should export the exact list of expected objects.", async () => {
+    test("Should export the exact list of expected objects.", async () => {
         const expectedExports = [
             "cjsCssPlugin",
         ];
