@@ -1,4 +1,4 @@
-import type { CssMountFactoryOptions } from "./ex-types.js";
+import type { CssFactoryOptions } from "./ex-types.js";
 import { getLogger } from "./logger.js";
 
 /**
@@ -34,10 +34,10 @@ export type LinkLoadResult = {
 };
 
 /**
- * Default CSS mount factory options.  These values will take effect if no explicit overriding options are set 
- * while calling `cssMountFactory()`.
+ * Default CSS factory options.  These values will take effect if no explicit overriding options are set when
+ * instantiating `CssFactory`.
  */
-export const defaultFactoryOptions: Required<CssMountFactoryOptions> = {
+export const defaultFactoryOptions: Required<CssFactoryOptions> = {
     loadTimeout: 1500,
     failOnTimeout: false,
     failOnError: false
@@ -105,13 +105,13 @@ export function wireCssLinkElement(el: HTMLLinkElement, cssFileName: string, pro
 /**
  * 
  * @param cssPromises List of CSS promises to process.
- * @param opts CSS mount factory options that pertain to error behavior.
+ * @param opts CSS factory options that pertain to error behavior.
  * @returns An awaitable promise that will only reject if an error occurs while outside of the CSS waiting feature, or 
- * if the CSS mount options are configured to throw an error.
+ * if the CSS factory options are configured to throw an error.
  */
 export async function processCssPromises(
     cssPromises: Promise<LinkLoadResult>[],
-    opts: Required<Pick<CssMountFactoryOptions, 'failOnError' | 'failOnTimeout'>>
+    opts: Required<Pick<CssFactoryOptions, 'failOnError' | 'failOnTimeout'>>
 ) {
     const logger = getLogger();
     try {
