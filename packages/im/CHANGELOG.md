@@ -1,5 +1,11 @@
 # @collagejs/vite-im
 
+## 0.4.0
+
+### Minor Changes
+
+- 8d5dd4c: feat: Add CSS support for the `relocate` lifecycle function
+
 ## 0.3.2
 
 ### Patch Changes
