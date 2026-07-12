@@ -29,9 +29,9 @@ export type ILogger = {
 }
 
 /**
- * Options for the `cssMountFactory` function.
+ * Options for the `CssFactory` class.
  */
-export type CssMountFactoryOptions = {
+export type CssFactoryOptions = {
     /**
      * Specifies the amount of time to wait for a CSS LINK element to load before potentially aborting the mount 
      * operation.

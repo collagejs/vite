@@ -20,30 +20,35 @@ This Vite plug-in can be used to generate a function compliant with the CollageJ
         ...
     });
     ```
-3. On each input file, which by default is only the one named `src/piece.ts`, we import the function factory and use it in all factory functions that create *CollageJS* pieces:
+3. On each input file, which by default is only the one named `src/piece.ts`, we import the CSS class factory, we instantiate **once** at the top of the module and then we use it once for every *CollageJS* piece object we create:
     ```typescript
     import { buildPiece } from "@collagejs/<insert your framework here>";
-    import { cssMountFactory } from "@collagejs/vite-css/ex";
+    import { CssFactory } from "@collagejs/vite-css/ex";
     ...
 
-    // IMPORTANT:  The first argument to the function is the file's name.
-    // Assuming this is src/piece.ts, we pass "piece" (no extension).
-    const cssMount = cssMountFactory('piece' /*, { options } */);
+    // IMPORTANT:  The first argument should always be import.meta.url.
+    const css = new CssFactory(import.meta.url /*, { options } */);
 
     export function myPieceFactory() {
         const piece = buildPiece(...);
+        const { mount, relocate } = css.instantiate();
         return {
-            mount: [cssMount, piece.mount],
-            update: piece.update
+            ...piece,
+            mount: [mount, piece.mount],
+            relocate: [relocate, piece.relocate]
         };
     }
     ```
 
-> Note how we build `cssMount` outside the factory function.  This is because we can reuse it in all factory functions exported by the module.  We only need one of these per module (not per factory function).
+> Note how we call `css.instantiate()` every time we create a piece object.
 
 This should work for any Vite-powered project.
 
-> ⚠️ **IMPORTANT**:  The CSS-mounting function features FOUC prevention, but it only works if it is listed *first* in the array of mount functions, like shown in the example.
+⚠️ **IMPORTANT NOTES**
+
+1. The CSS-mounting function features FOUC prevention, but it only works if it is listed *first* in the array of mount functions, like shown in the example.
+2. The CSS-relocating function features rollback abilities, so it should not introduce risks related to the relocation operation.
+3. The `relocate` lifecycle is optional.  Only use the CSS-relocating function if your *CollageJS* piece is relocatable.  So far, all official framework adapters default to creating relocatable pieces, but piece authors can change this.
 
 ## Plug-in Options
 
@@ -73,7 +78,7 @@ This option accepts a Rolldown-compliant pattern for asset filenames.  Refer to 
 
 By default, this option's value is `'assets/[name]-[hash][extname]'`.  Yes, you may add sub directories to the pattern.
 
-## Factory Function Options
+## CSS Factory Options
 
 ### `loadTimeout`
 
@@ -101,4 +106,4 @@ The `option` parameter accepts a Boolean value, or an object that fulfills the `
 
 The logger object is a module level object (a singleton).  Usually, it only needs to be configured once per project.  If the project, however, contains more than one entry point (module), we don't know which entry point will be imported first.  So where to put this configuration?
 
-The sanest option is to create an ES module with the side effect of calling this function.  Then import this ES module in all entry points.
+The sanest option is to create an ES module with the side effect of calling this function.  Then import this ES module from all entry files.

@@ -183,9 +183,6 @@ export function pluginFactory(
                     const uiOptions: ImoUiFactoryOptions = typeof imOpt.imoUi === 'object' ?
                         imOpt.imoUi :
                         {};
-                    if (uiOptions.base === undefined) {
-                        uiOptions.base = imoUrl.substring(0, imoUrl.lastIndexOf('/') + 1);
-                    }
                     tags.push({
                         tag: `script`,
                         attrs: {

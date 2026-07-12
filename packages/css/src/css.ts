@@ -1,12 +1,10 @@
-/// <reference types="vite/client" />
-
-import { type CssMountFactoryOptions, type MountBindOptions } from "./ex-types.js";
-import { createLinkElement, defaultFactoryOptions, processCssPromises, wireCssLinkElement, type LinkLoadResult } from "./css-helpers.js";
-export { configureLogger } from "./logger.js";
-import { getLogger } from "./logger.js";
-import { CssMap } from "./private-types.js";
-import { AcceptableTarget, MountFn } from "@collagejs/core";
+import { AcceptableTarget, CorePiece, RelocateFn } from "@collagejs/core";
 import { CountControlledData } from "./CountControlledData.js";
+import { createLinkElement, defaultFactoryOptions, LinkLoadResult, processCssPromises, wireCssLinkElement } from "./css-helpers.js";
+import { CssFactoryOptions } from "./ex-types.js";
+import { getLogger } from "./logger.js";
+import { CssMap, CssRecord, RelocateContext } from "./private-types.js";
+import { cssInjectedMap } from "./injected-map.js";
 
 /**
  * Head element mutation observer used to track CSS that Vite has scheduled for dynamic injection.  This commonly 
@@ -21,11 +19,6 @@ let observer: MutationObserver | undefined;
  * light DOM.
  */
 const projectId = '{cjcss:PROJECT_ID}';
-/**
- * Injection variable that receives from the build process a JSON object that maps entry points to their associated CSS 
- * files.
- */
-const cssInjectedMap = '{cjcss:CSS_MAP}';
 /**
  * The "live" CSS map that is derived from the injected map.
  */
@@ -72,12 +65,6 @@ const dynCssMap: Record<string, string[]> = Object.keys(cssMap).reduce((acc, key
     return acc;
 }, {} as Record<string, string[]>);
 /**
- * Vite's base URL, which is used to construct the full URL for the CSS files to be mounted.  This base is overridable 
- * at the mount function level for unusual use cases, like mounting a *CollageJS* piece directly from a CDN network.
- */
-const viteBase = import.meta.env.BASE_URL;
-
-/**
  * Determines if the given CSS file is currently in use by at least one CollageJS piece mounted in light DOM.
  * 
  * The function looks up the entry names that depend on the CSS file, and checks if any of them have a non-zero count
@@ -93,7 +80,6 @@ function isDynCssInUse(cssFileName: string) {
     }
     return entryNames.some((entryName) => !!entryCounts[entryName]?.count);
 }
-
 /**
  * Processes the newly inserted LINK element in HEAD (using the head observer) and determines if should or should not 
  * become disabled.
@@ -138,121 +124,6 @@ function processDynamicCssFile(link: HTMLLinkElement) {
     }
     logger.debug('CSS file with HREF "%s" is needed by at least one CollageJS piece mounted in light DOM.  Leaving it enabled.', link.href);
 }
-
-/**
- * Returns a *CollageJS*-compliant mount function that can be used to mount the CSS files associated with the given entry
- * file.
- * 
- * The algorithm supports mounting *CollageJS* pieces in light DOM or shadow DOM, and will mount the CSS files 
- * accordingly.  If the mount function is called with a shadow root as the target, the CSS files will be mounted in the 
- * shadow DOM directly.
- * 
- * If the mount function is called with a light DOM target, the CSS files will be mounted in the HEAD element of the 
- * document, and will be disabled when no *CollageJS* pieces that depend on them are mounted in light DOM.
- * 
- * @param entry Name of the entry (input) file used to identify the set of CSS stylesheets needed.
- * @param options Optional set of options to further adjust the behavior of the CSS-mounting algorithm.
- * @returns A *CollageJS*-compliant mount function that can participate in *CollageJS* pieces' lifecycles.
- */
-export function cssMountFactory(entry: string, options?: CssMountFactoryOptions) {
-    const opts: Required<CssMountFactoryOptions> = {
-        ...defaultFactoryOptions,
-        ...options
-    };
-    if (!entryCounts[entry]) {
-        throw new Error(`The entry point "${entry}" is not defined in the CSS map.  Was the entry file renamed?`);
-    }
-    const cssRecord = cssMap[entry]!;
-
-    return mount satisfies MountFn;
-
-    async function mount(this: MountBindOptions | undefined, target: AcceptableTarget) {
-        const shadowDomCssMap = new Map<string, HTMLLinkElement>();
-        const lightDomCssMap = new Map<string, CountControlledData<HTMLLinkElement>>();
-
-        function createShadowDomCssLink(cssFileName: string, base: string) {
-            const linkEl = createLinkElement(base + cssFileName, true);
-            shadowDomCssMap.set(cssFileName, linkEl);
-            return linkEl;
-        }
-
-        function createLightDomCssLink(cssFileName: string, base: string) {
-            let controlledLink = cssFileCounts[cssFileName];
-            if (!controlledLink) {
-                const linkEl = createLinkElement(base + cssFileName, false);
-                controlledLink = new CountControlledData<HTMLLinkElement>(linkEl, {
-                    onCountRestarted: (controller) => {
-                        controller.data.disabled = false;
-                    },
-                    onCountExhausted: (controller) => {
-                        controller.data.disabled = true;
-                    }
-                });
-                cssFileCounts[cssFileName] = controlledLink;
-            }
-            lightDomCssMap.set(cssFileName, controlledLink);
-            controlledLink.increase();
-            return controlledLink;
-        }
-
-        if (!observer) {
-            observer = observeHead();
-        }
-        let base = this?.base ?? viteBase;
-        base += base.endsWith('/') ? '' : '/';
-        let cssFiles: Iterable<string> = cssRecord.static;
-        const isShadowRoot = target instanceof ShadowRoot;
-        if (isShadowRoot) {
-            cssFiles = new Set([...cssRecord.static, ...cssRecord.dynamic]);
-        }
-        const cssPromises = [];
-        for (let css of cssFiles) {
-            // The load event doesn't seem to fire for pre-existing elements that are merely re-enabled, even though a
-            // network request might show up in the Network tab of the browser's developer tools.  Therefore, only 
-            // attempt FOUC prevention on new CSS links.
-            const addFouc = isShadowRoot || !cssFileCounts[css];
-            const linkEl = isShadowRoot ? createShadowDomCssLink(css, base) : createLightDomCssLink(css, base).data;
-            cssPromises.push(mountCssFile(css, linkEl, addFouc, opts.loadTimeout, isShadowRoot ? target : document.head, isShadowRoot));
-        }
-        await processCssPromises(cssPromises, opts);
-        if (!isShadowRoot) {
-            entryCounts[entry]!.increase();
-        }
-        return () => {
-            if (isShadowRoot) {
-                for (let css of shadowDomCssMap.values()) {
-                    css.remove();
-                }
-            }
-            else {
-                entryCounts[entry]!.decrease();
-                for (let c of lightDomCssMap.values()) {
-                    c.decrease();
-                }
-            }
-            return Promise.resolve();
-        };
-    }
-}
-
-/**
- * Mounts the specified CSS filename as a CSS link element in the HEAD element.  The function returns a promise that 
- * resolves once the load event of the LINK element fires.
- * @param cssFileName The CSS filename to be mounted.
- */
-function mountCssFile(cssFileName: string, linkEl: HTMLLinkElement, addFouc: boolean, loadTimeout: number, target: AcceptableTarget, isShadowRoot: boolean) {
-    return new Promise<LinkLoadResult>((rslv, _rjct) => {
-        if (!linkEl.isConnected) {
-            target[isShadowRoot ? 'prepend' : 'appendChild'](linkEl);
-        }
-        if (!addFouc) {
-            rslv({ status: 'ok' });
-            return;
-        }
-        rslv(wireCssLinkElement(linkEl, cssFileName, projectId, loadTimeout));
-    });
-}
-
 /**
  * Determines if the given HTML node is a LINK element.
  * @param el HTML node to test.
@@ -261,7 +132,6 @@ function mountCssFile(cssFileName: string, linkEl: HTMLLinkElement, addFouc: boo
 function isLinkElement(el: Node): el is HTMLLinkElement {
     return el.nodeName === 'LINK';
 }
-
 /**
  * Starts an observation process to identify any CSS link elements that Vite's CSS splitting algorithm may auto-insert.
  * @returns The observer object that can be used to stop the observation process.
@@ -282,4 +152,219 @@ function observeHead() {
         childList: true
     });
     return observer;
+}
+/**
+ * Mounts the specified CSS filename as a CSS link element in the HEAD element.  The function returns a promise that 
+ * resolves once the load event of the LINK element fires.
+ * @param cssFileName The CSS filename to be mounted.
+ */
+function mountCssFile(cssFileName: string, linkEl: HTMLLinkElement, addFouc: boolean, loadTimeout: number, target: AcceptableTarget, isShadowRoot: boolean) {
+    return new Promise<LinkLoadResult>((rslv, _rjct) => {
+        if (!linkEl.isConnected) {
+            target[isShadowRoot ? 'prepend' : 'appendChild'](linkEl);
+        }
+        if (!addFouc) {
+            rslv({ status: 'ok' });
+            return;
+        }
+        rslv(wireCssLinkElement(linkEl, cssFileName, projectId, loadTimeout));
+    });
+}
+/**
+ * Regular expression used to extract the last segment of a URL that ends with ".js" and may have query parameters or 
+ * hash fragments.
+ * 
+ * It is also used to replace it and generate the base URL for the CSS files.
+ */
+const lastSegmentRegex = /\/([^/]+)\.js([#?].*$|$)/;
+/**
+ * Class that implements a factory of CollageJS lifecycle functions for a given entry file.
+ */
+export class CssFactory {
+    /**
+     * Base URL used to resolve the CSS file names.  This is derived from the Vite environment variable `BASE_URL` and
+     * can be overridden by the constructor parameter `baseUrl`.
+     */
+    #baseUrl = import.meta.env.BASE_URL;
+    /**
+     * The CSS record for the entry file.  This is derived from the injected CSS map.
+     */
+    #cssRecord: CssRecord;
+    /**
+     * The options used to configure the factory.  This is derived from the default options and can be overridden by
+     * the constructor parameter `options`.
+     */
+    #options: Required<CssFactoryOptions>;
+    /**
+     * The entry file name for which the factory is created.  This is used to look up the CSS record in the injected 
+     * CSS map.
+     */
+    #entry: string;
+    #logger = getLogger();
+    /**
+     * Initializes a new instance of this class.
+     * @param moduleUrl The URL of the module for which the factory is created.  Always use `import.meta.url` for this
+     * parameter unless you have a very specific edge case where it doesn't work.
+     * @param options Optional set of options for the CSS algorithm.
+     */
+    constructor(moduleUrl: string, options?: CssFactoryOptions) {
+        this.#logger.debug('Initializing CssFactory for module URL: %s', moduleUrl);
+        this.#baseUrl = moduleUrl.replace(lastSegmentRegex, '/');
+        this.#logger.debug('Derived base URL: %s', this.#baseUrl);
+        if (!this.#baseUrl) {
+            throw new Error(`Could not determine the base URL from the module URL "${moduleUrl}".  Are you passing the correct module URL? If not doing so, use import.meta.url.`);
+        }
+        this.#entry = lastSegmentRegex.exec(moduleUrl)?.[1] ?? '';
+        this.#logger.debug('Derived entry name: %s', this.#entry);
+        if (!this.#entry) {
+            throw new Error(`Could not determine the entry file name from the module URL "${moduleUrl}".  Are you passing the correct module URL? If not doing so, use import.meta.url.`);
+        }
+        if (!entryCounts[this.#entry]) {
+            throw new Error(`The entry name "${this.#entry}" is not defined in the CSS map.  Was the entry file renamed?`);
+        }
+        this.#cssRecord = cssMap[this.#entry]!;
+        // this.#baseUrl += this.#baseUrl.endsWith('/') ? '' : '/';
+        this.#options = {
+            ...defaultFactoryOptions,
+            ...options
+        };
+    }
+    /**
+     * Creates a new instance of the *CollageJS* lifecycle functions for the entry file represented by the module URL
+     * given to the constructor.
+     * 
+     * While the `CssFactory` class is instantiated once per entry file, the `instantiate` method is used once per 
+     * *CollageJS* piece created.
+     * 
+     * It provides a `mount` function and a `relocate` function.  As for the latter:
+     * 
+     * - If your piece doesn't support relocation, then don't bother with the `relocate` function.
+     * - If writing generic factory code, check the piece's `relocate` property, and if `undefined`, skip `relocate`.
+     * @example
+     * ```ts
+     * // Entry file: my-entry.js
+     * import { CssFactory } from "@collagejs/vite-css";
+     * import MyComponent from "some/where/MyComponent.[tsx|svelte|vue|solid|ripple|etc]";
+     * import { buildPiece } from "@collagejs/<framework>";
+     * 
+     * // Only one instance per entry file.  Use it in all factory functions exported by the entry file.
+     * // It MUST be a top-level statement, or we risk having this line moved to a non-entry chunk during building.
+     * const cssFactory = new CssFactory(import.meta.url);
+     * 
+     * export function myPieceFactory() {
+     *   const { mount, relocate } = cssFactory.instantiate();
+     *   const piece = buildPiece(MyComponent);
+     *   return {
+     *     ...piece,
+     *     mount: [mount, piece.mount],
+     *     relocate: [relocate, piece.relocate]
+     *   };
+     * }
+     * ```
+     * @returns An object that provides mount and relocate *CollageJS*-compliant functions capable of handling the
+     * CSS that Vite's build process produces.
+     */
+    instantiate() {
+        const relocateCtx = {} as RelocateContext;
+        relocateCtx.mount = mount.bind(undefined, this.#baseUrl, this.#entry, this.#cssRecord, this.#options);
+
+        return {
+            mount: relocateCtx.mount,
+            relocate: relocate.bind(undefined),
+        } satisfies CorePiece;
+
+        async function mount(
+            this: undefined,
+            base: string,
+            entry: string,
+            cssRecord: CssRecord,
+            opts: Required<CssFactoryOptions>,
+            target: AcceptableTarget
+        ) {
+            const shadowDomCssMap = new Map<string, HTMLLinkElement>();
+            const lightDomCssMap = new Map<string, CountControlledData<HTMLLinkElement>>();
+
+            function createShadowDomCssLink(cssFileName: string, base: string) {
+                const linkEl = createLinkElement(base + cssFileName, true);
+                shadowDomCssMap.set(cssFileName, linkEl);
+                return linkEl;
+            }
+
+            function createLightDomCssLink(cssFileName: string, base: string) {
+                let controlledLink = cssFileCounts[cssFileName];
+                if (!controlledLink) {
+                    const linkEl = createLinkElement(base + cssFileName, false);
+                    controlledLink = new CountControlledData<HTMLLinkElement>(linkEl, {
+                        onCountRestarted: (controller) => {
+                            controller.data.disabled = false;
+                        },
+                        onCountExhausted: (controller) => {
+                            controller.data.disabled = true;
+                        }
+                    });
+                    cssFileCounts[cssFileName] = controlledLink;
+                }
+                lightDomCssMap.set(cssFileName, controlledLink);
+                controlledLink.increase();
+                return controlledLink;
+            }
+
+            if (!observer) {
+                observer = observeHead();
+            }
+            let cssFiles: Iterable<string> = cssRecord.static;
+            const isShadowRoot = target instanceof ShadowRoot;
+            if (isShadowRoot) {
+                cssFiles = new Set([...cssRecord.static, ...cssRecord.dynamic]);
+            }
+            const cssPromises = [];
+            for (let css of cssFiles) {
+                // The load event doesn't seem to fire for pre-existing elements that are merely re-enabled, even though a
+                // network request might show up in the Network tab of the browser's developer tools.  Therefore, only 
+                // attempt FOUC prevention on new CSS links.
+                const addFouc = isShadowRoot || !cssFileCounts[css];
+                const linkEl = isShadowRoot ? createShadowDomCssLink(css, base) : createLightDomCssLink(css, base).data;
+                cssPromises.push(mountCssFile(css, linkEl, addFouc, opts.loadTimeout, isShadowRoot ? target : document.head, isShadowRoot));
+            }
+            await processCssPromises(cssPromises, opts);
+            if (!isShadowRoot) {
+                entryCounts[entry]!.increase();
+            }
+            relocateCtx.unmount = () => {
+                if (isShadowRoot) {
+                    for (let css of shadowDomCssMap.values()) {
+                        css.remove();
+                    }
+                }
+                else {
+                    entryCounts[entry]!.decrease();
+                    for (let c of lightDomCssMap.values()) {
+                        c.decrease();
+                    }
+                }
+                return Promise.resolve();
+            };
+            return () => {
+                return relocateCtx.unmount?.() ?? Promise.resolve();
+            }
+        }
+
+        async function relocate(this: undefined, source: AcceptableTarget, target: AcceptableTarget): ReturnType<RelocateFn> {
+            // If moving from light DOM to light DOM, or from shadow DOM to shadow DOM, then there's no extra work needed.
+            if ((source instanceof ShadowRoot && target instanceof ShadowRoot) ||
+                (source instanceof DocumentFragment && target instanceof DocumentFragment)) {
+                return 'supported';
+            }
+            // For crossing from light DOM to shadow DOM, or from shadow DOM to light DOM, the general process is to
+            // perform an unmount of the CSS and then mount it again in the new target.
+            // A rollback function must be prepared and the `'done'` status must be returned along with the rollback
+            // to tell the caller that work was done and that it can be rolled back if needed.
+            const rollbackFn = async () => {
+                await relocateCtx.mount(source);
+            };
+            await relocateCtx.unmount?.();
+            await relocateCtx.mount(target);
+            return ['done', rollbackFn];
+        }
+    }
 }

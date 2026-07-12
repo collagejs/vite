@@ -227,8 +227,8 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                             };
                             collectDynamicCssFiles(chunk, true);
                             cssMap[chunk.name] = {
-                                static: Array.from(cssFiles.values()),
-                                dynamic: Array.from(cssDynFiles.values())
+                                static: Array.from(cssFiles.values().map(css => css.replace(/\\/g, '/'))),
+                                dynamic: Array.from(cssDynFiles.values().map(css => css.replace(/\\/g, '/')))
                             };
                         }
                     }
