@@ -100,6 +100,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
         async function mifeConfig(cfg: UserConfig, viteOpts: ConfigEnv) {
             const computedConfig: UserConfig = {};
             computedConfig.server = {
+                strictPort: true,
                 port: cssOpt.serverPort,
                 origin: `http${cssOpt.localhostSsl ? 's' : ''}://localhost:${cssOpt.serverPort}`,
             };
