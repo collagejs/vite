@@ -1,4 +1,4 @@
-import { AcceptableTarget, CorePiece, RelocateFn } from "@collagejs/core";
+import { AcceptableTarget, RelocateFn } from "@collagejs/core";
 import { CountControlledData } from "./CountControlledData.js";
 import { createLinkElement, defaultFactoryOptions, LinkLoadResult, processCssPromises, wireCssLinkElement } from "./css-helpers.js";
 import { CssFactoryOptions } from "./ex-types.js";
@@ -267,12 +267,13 @@ export class CssFactory {
      */
     instantiate() {
         const relocateCtx = {} as RelocateContext;
-        relocateCtx.mount = mount.bind(undefined, this.#baseUrl, this.#entry, this.#cssRecord, this.#options);
+        const boundMount = mount.bind(undefined, this.#baseUrl, this.#entry, this.#cssRecord, this.#options);
+        relocateCtx.mount = boundMount;
 
         return {
-            mount: relocateCtx.mount,
+            mount: boundMount,
             relocate: relocate.bind(undefined),
-        } satisfies CorePiece;
+        };
 
         async function mount(
             this: undefined,
