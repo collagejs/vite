@@ -18,7 +18,7 @@ export const silentLogger: ILogger = {
 /**
  * Module-level variable for the logger of choice.
  */
-let logger: ILogger = console;
+let logger: ILogger = silentLogger;
 
 /**
  * Configures the logger object according to the given logging option.
