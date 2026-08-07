@@ -43,7 +43,7 @@ export type CollageJsCssPluginOptions = {
      * factories from multiple files.
      * @default 'src/piece.ts'
      */
-    entryPoints?: string | string[] | undefined;
+    input?: string | string[] | undefined;
     /**
      * Unique identifier given to the project.  It is used to tag CSS assets so the lifecycle functions in the 
      * automatic module `collagejs/vite-css/ex` can properly identify the CSS resources associated to this 

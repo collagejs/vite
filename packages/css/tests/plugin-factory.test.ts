@@ -832,9 +832,9 @@ describe('pluginFactory', () => {
             await expect(act).rejects.toThrow();
         });
     }
-    const spaEntryPointsTest = async (expects: Record<string, string>, inputs?: string | string[]) => {
+    const spaInputTest = async (expects: Record<string, string>, inputs?: string | string[]) => {
         // Arrange.
-        const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444, entryPoints: inputs }))[0];
+        const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444, input: inputs }))[0];
         const env: ConfigEnv = { command: 'build', mode: 'production' };
 
         // Act.
@@ -846,7 +846,7 @@ describe('pluginFactory', () => {
         expect(resultingInput).to.not.equal(undefined);
         expect(resultingInput).to.deep.equal(expects);
     }
-    const spaEntryPointsTestData: { inputs: undefined | string | string[]; expects: Record<string, string> }[] = [
+    const spaInputTestData: { inputs: undefined | string | string[]; expects: Record<string, string> }[] = [
         {
             inputs: undefined,
             expects: {
@@ -867,7 +867,7 @@ describe('pluginFactory', () => {
             }
         }
     ];
-    for (let tc of spaEntryPointsTestData) {
-        it(`Should add the specified entry points as inputs for rolldown build.  Inputs: ${tc.inputs}`, () => spaEntryPointsTest(tc.expects, tc.inputs));
+    for (let tc of spaInputTestData) {
+        it(`Should add the specified entry files as inputs for rolldown build.  Inputs: ${tc.inputs}`, () => spaInputTest(tc.expects, tc.inputs));
     }
 });
