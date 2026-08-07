@@ -1,4 +1,4 @@
-import { MountFn, UnmountFn } from "@collagejs/core";
+import { AcceptableTarget, UnmountFn } from "@collagejs/core";
 
 export type CssRecord = {
     static: string[];
@@ -8,6 +8,6 @@ export type CssRecord = {
 export type CssMap = Record<string, CssRecord>;
 
 export interface RelocateContext { 
-    mount: MountFn;
+    mount: (target: AcceptableTarget) => Promise<UnmountFn>;
     unmount: UnmountFn | undefined;
 }

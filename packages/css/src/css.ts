@@ -31,8 +31,8 @@ const cssMap: CssMap = JSON.parse(cssInjectedMap);
 const cssFileCounts: Record<string, CountControlledData<HTMLLinkElement>> = {};
 /**
  * Dictionary object directly derived from the injected CSS map that sets up counters for CollageJS piece instances 
- * mounted in light DOM for each entry point.  The counters are used to determine if the dynamic CSS files associated 
- * with each entry point should be enabled or disabled in the HEAD element.
+ * mounted in light DOM for each entry file.  The counters are used to determine if the dynamic CSS files associated 
+ * with each entry file should be enabled or disabled in the HEAD element.
  */
 const entryCounts = Object.keys(cssMap).reduce((acc, key) => {
     acc[key] = new CountControlledData([] as HTMLLinkElement[], {
@@ -50,7 +50,7 @@ const entryCounts = Object.keys(cssMap).reduce((acc, key) => {
     return acc;
 }, {} as Record<string, CountControlledData<HTMLLinkElement[]>>);
 /**
- * Reverse map of the injected CSS map that allows for looking up the entry points that depend on a given dynamic CSS 
+ * Reverse map of the injected CSS map that allows for looking up the entry files that depend on a given dynamic CSS 
  * file.  This is used to determine if a dynamic CSS file should be enabled or disabled in the HEAD element based on 
  * the CollageJS pieces currently mounted in light DOM.
  */
@@ -84,7 +84,7 @@ function isDynCssInUse(cssFileName: string) {
  * Processes the newly inserted LINK element in HEAD (using the head observer) and determines if should or should not 
  * become disabled.
  * 
- * It looks up the entry points that depend on the CSS injected by the LINK element, and disables it immediately if 
+ * It looks up the entry files that depend on the CSS injected by the LINK element, and disables it immediately if 
  * there are no CollageJS pieces currently mounted in light DOM that depend on said CSS.  This would mean that the 
  * LINK element was triggered by a CollageJS piece that has been mounted in shadow DOM.
  * 

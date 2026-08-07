@@ -60,7 +60,7 @@ The only required option:  The port number this project will be assigned when ru
 
 A Boolean value, whose default value is `false` that indicates if Vite's development server should use SSL (https).
 
-### `entryPoints`
+### `input`
 
 This is one very important option to know.  Its default value is `src/piece.ts`, but can also be an array of strings.  In short, this is the list of files that export *CollageJS* piece factories.  This is the list of modules whose exports we want visible.
 
@@ -104,6 +104,6 @@ The `option` parameter accepts a Boolean value, or an object that fulfills the `
 
 ### How and Where to Configure Logging
 
-The logger object is a module level object (a singleton).  Usually, it only needs to be configured once per project.  If the project, however, contains more than one entry point (module), we don't know which entry point will be imported first.  So where to put this configuration?
+The logger object is a module level object (a singleton).  Usually, it only needs to be configured once per project.  If the project, however, contains more than one entry file (module), we don't know which entry file will be imported first.  So where to put this configuration?
 
 The sanest option is to create an ES module with the side effect of calling this function.  Then import this ES module from all entry files.

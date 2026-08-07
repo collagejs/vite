@@ -12,7 +12,7 @@ import { CssMap } from './private-types.js';
 
 const defaultOptions = {
     localhostSsl: false,
-    entryPoints: 'src/piece.ts',
+    input: 'src/piece.ts',
     aim: true,
 };
 
@@ -31,7 +31,7 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
             .postMerge(async cfg => {
                 cfg.localhostSsl ??= defaultOptions.localhostSsl;
                 cfg.aim ??= defaultOptions.aim;
-                cfg.entryPoints ??= defaultOptions.entryPoints;
+                cfg.input ??= defaultOptions.input;
                 cfg.projectId ??= JSON.parse(await readFile('./package.json', { encoding: 'utf8' })).name;
                 if (typeof cfg.projectId !== 'string') {
                     throw new Error("The 'projectId' option must be a string, or if defaulting to the project's name in package.json, that name must be a string.");
@@ -111,11 +111,11 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
             const input: InputOption = {};
             let preserveEntrySignatures: InputOptions['preserveEntrySignatures'];
             if (viteOpts.command === 'build') {
-                let entryPoints = cssOpt.entryPoints;
-                if (typeof entryPoints === 'string') {
-                    entryPoints = [entryPoints];
+                let inputOption = cssOpt.input;
+                if (typeof inputOption === 'string') {
+                    inputOption = [inputOption];
                 }
-                for (let ep of entryPoints) {
+                for (let ep of inputOption) {
                     input[path.parse(ep).name] = ep;
                 }
                 preserveEntrySignatures = 'exports-only';
