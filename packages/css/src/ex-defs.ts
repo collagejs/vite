@@ -30,7 +30,6 @@ export const injectedMapModuleName = './injected-map.js';
  * Array of all module names that are dynamically inserted by this plug-in for Vite projects to provide CSS injection.
  */
 export const allModuleNames = [
-    extensionModuleName,
     cssHelpersModuleName,
     cssLoggerModuleName,
     cssSubscriberModuleName,
