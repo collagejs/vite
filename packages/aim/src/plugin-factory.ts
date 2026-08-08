@@ -18,6 +18,14 @@ export const pluginName = '@collagejs/vite-aim';
  * NOTE:  This is exported for testing purposes only.
  */
 export const defaultImportMapEndpoint = '/__import_map';
+/**
+ * The name of the virtual module that allows importation of the import map data the plug-in holds.
+ */
+export const importMapModuleName = '@collagejs/vite-aim/im';
+/**
+ * The virtualized module ID that is used internally by the plug-in to represent the import map data.
+ */
+export const virtualizedImportMapModuleId = `\0${importMapModuleName}`;
 
 /**
  * Creates a Vite plugin for handling import maps in micro-frontend architectures.
@@ -31,12 +39,13 @@ export const defaultImportMapEndpoint = '/__import_map';
  * @param options - Configuration options for the plugin
  * @returns Vite plugin object
  */
-export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
+export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}) {
     const {
         importMapEndpoint = defaultImportMapEndpoint,
         allowedOrigins = [], // Developer must specify allowed origins
         pathExceptions = [],
         importMapTimeout = 2_000, // 2 seconds
+        importMap,
         logLevel = undefined,
         banner = true,
         externalizationMode = 'id',
@@ -44,6 +53,7 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
 
     let config: ResolvedConfig;
     let importMapResolver: Resolver | undefined;
+    let devTimeImportMap: ImportMap | undefined;
     let logger: Logger;
     const externalizedModules = new Map<string, string>();
 
@@ -81,8 +91,8 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
         configResolved(resolvedConfig) {
             config = resolvedConfig;
             logger = createLogger(logLevel ?? config.logLevel, { prefix: `[${pluginName}]` });
-            if (resolvedConfig.command === 'build' && options.importMap) {
-                importMapResolver = resolver(options.importMap);
+            if (resolvedConfig.command === 'build' && importMap) {
+                importMapResolver = resolver(importMap);
                 if (!importMapResolver.valid) {
                     logger.error(`Provided import map is invalid. Build may fail.\nErrors:\n${importMapResolver.validationResult.errors.join('\n')}`, { timestamp: true });
                     importMapResolver = undefined;
@@ -185,6 +195,7 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
                                 return;
                             }
                             importMapResolver = imResolver;
+                            devTimeImportMap = receivedImportMap;
                             const importCount = Object.keys(receivedImportMap.imports || {}).length;
                             const scopeCount = Object.keys(receivedImportMap.scopes || {}).length;
 
@@ -297,18 +308,41 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
          * @param importer - The module that is importing this identifier
          * @returns Resolution result or null to let other plugins handle
          */
-        resolveId(id, _importer) {
-            // Check if we have a mapping (for logging purposes)
-            const resolved = resolveFromImportMap(id);
-            if (resolved === null || resolved === id) {
-                return null;
+        resolveId: {
+            order: 'pre',
+            handler(id, _importer) {
+                if (id === importMapModuleName) {
+                    console.log(`Resolving virtualized import map module: ${virtualizedImportMapModuleId}`);
+                    return virtualizedImportMapModuleId;
+                }
+                const resolved = resolveFromImportMap(id);
+                if (resolved === null || resolved === id) {
+                    return null;
+                }
+                const finalId = externalizationMode === 'resolved' || config.command === 'serve' ? resolved : id;
+                externalizedModules.set(id, finalId);
+                return {
+                    id: finalId,
+                    external: true,
+                }
             }
-            const finalId = externalizationMode === 'resolved' || config.command === 'serve' ? resolved : id;
-            externalizedModules.set(id, finalId);
-            return {
-                id: finalId,
-                external: true
-            };
+        },
+        async load(id) {
+            if (id === virtualizedImportMapModuleId) {
+                if (config.command === 'serve' && !devTimeImportMap) {
+                    await ManualResetEvent.waitAsync(importMapReadyEvent.token, importMapTimeout);
+                }
+                let im = config.command === 'serve' ? devTimeImportMap : importMap;
+                if (!im || !importMapResolver) {
+                    logger.warn(`No import map is available. Returning undefined.`, { timestamp: true });
+                    im = undefined;
+                }
+                return {
+                    invalidate: true,
+                    code: `export const importMap = ${JSON.stringify(im)}`,
+                }
+            }
+            return null;
         },
 
         /**
@@ -326,5 +360,5 @@ export function cjsAimPlugin(options: CollageJsAimPluginOptions = {}): Plugin {
                 logger.info(`Externalized modules: ${fmt.value([...externalizedModules.values()].join(', '))}`, { timestamp: true });
             }
         },
-    };
+    } satisfies Plugin;
 }

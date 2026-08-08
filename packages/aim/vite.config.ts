@@ -14,6 +14,7 @@ export default defineConfig({
         lib: {
             entry: {
                 index: 'src/index.ts',
+                'index-im': 'src/index-im.ts',
             },
         },
         rolldownOptions: {
