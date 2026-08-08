@@ -167,11 +167,9 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
                 order: 'pre',
                 handler(source, importer, _options) {
                     if (source === extensionModuleName) {
-                        console.debug(`Resolving ${extensionModuleName} to ${virtualizedExtensionModuleId}`);
                         return virtualizedExtensionModuleId;
                     }
                     if (importer?.startsWith(virtualizedExtensionModuleId) && allModuleNames.includes(source)) {
-                        console.debug(`Resolving ${source} to ${virtualizedExtensionModuleId}/${source.replace(/^\.\//, '')}`);
                         return `${virtualizedExtensionModuleId}/${source.replace(/^\.\//, '')}`;
                     }
                     return null;
@@ -179,11 +177,9 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
             },
             async load(id, _options) {
                 if (id === virtualizedExtensionModuleId) {
-                    console.debug(`Loading ${virtualizedExtensionModuleId}`);
                     return exModule = exModule ?? (await buildExModule());
                 }
                 else if (id.startsWith(virtualizedExtensionModuleId)) {
-                    console.debug(`Loading ${id}`);
                     return await readFile(
                         buildPeerModulePath(id.replace(`${virtualizedExtensionModuleId}/`, './')),
                         { encoding: 'utf8' }
