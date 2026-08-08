@@ -1,4 +1,4 @@
-import { ImportMap } from "@collagejs/importmap";
+import type { ImportMap } from "@collagejs/importmap";
 
 /**
  * Returns a copy of the import map that `@collagejs/vite-aim` currently holds.
