@@ -1,5 +1,11 @@
 # @collagejs/vite-aim
 
+## 0.6.0
+
+### Minor Changes
+
+- a029026: feat(aim): Add virtual module to expose import map
+
 ## 0.5.0
 
 ### Minor Changes

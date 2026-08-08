@@ -1,5 +1,20 @@
 # @collagejs/vite-css
 
+## 0.8.0
+
+### Minor Changes
+
+- 8c29a03: chore(css)!: Rename `entryPoints` option to `input`
+
+### Patch Changes
+
+- df69304: fix(css): Set `server.strictPort` to true to avoid 404 assets
+- abb7ff3: fix(css): Follow Vite's virtual module best practices
+- 73a29fe: chore(css): Make logger silent by default
+- 9b19cc2: fix(css): Correct type of returned mount function from css.instantiate()
+- Updated dependencies [a029026]
+  - @collagejs/vite-aim@0.6.0
+
 ## 0.7.0
 
 ### Minor Changes
