@@ -1,12 +1,13 @@
 import { describe, test, expect, vi, beforeAll, beforeEach, afterEach, type Mock } from "vitest";
-import { cjsAimPlugin, defaultImportMapEndpoint, pluginName } from "../src/plugin-factory";
+import { cjsAimPlugin, defaultImportMapEndpoint, importMapModuleName, pluginName, virtualizedImportMapModuleId } from "../src/plugin-factory";
 import { createServer } from "vite";
 import type { ConfigEnv, ResolvedConfig, ServerHook, ViteDevServer, Connect, PreviewServerHook } from "vite";
 import type { ServerResponse } from "http";
 import type { CollageJsAimPluginOptions } from "../src/types.js";
+import type { PluginContext } from 'rolldown';
+import { ImportMap } from "@collagejs/importmap";
 
 type ViteConfigResolvedHookFn = (config: ResolvedConfig) => void | Promise<void>;
-type ViteResolveIdHookFn = (id: string, importer?: string, options?: { ssr?: boolean }) => Promise<{ id: string; external: true } | null | undefined>;
 
 const externalizationModes: CollageJsAimPluginOptions['externalizationMode'][] = ['id', 'resolved'];
 
@@ -488,8 +489,7 @@ describe("cjsAimPlugin", () => {
                 beforeAll(async () => {
                     devServer = await createServer();
                     plugin = await preparePlugin({ externalizationMode: mode });
-                    // @ts-expect-error TS2684
-                    await (plugin.configureServer as ServerHook)(devServer);
+                    await plugin.configureServer.bind({} as PluginContext)(devServer);
                     handler = devServer.middlewares.stack.find(m => m.route === defaultImportMapEndpoint)?.handle as Connect.SimpleHandleFunction;
                 });
                 test.each([
@@ -562,7 +562,7 @@ describe("cjsAimPlugin", () => {
                         'Access-Control-Allow-Headers': 'Content-Type'
                     });
                     expect(res.end).toHaveBeenCalledOnce();
-                    const resolved = await (plugin.resolveId as ViteResolveIdHookFn)(id, undefined, { ssr: false });
+                    const resolved = await plugin.resolveId.handler.bind({} as PluginContext)(id, undefined);
                     expect(resolved).toEqual(expected);
                 });
             });
@@ -585,10 +585,10 @@ describe("cjsAimPlugin", () => {
                     text: "externalize",
                     expected: { id: '/foo.js', external: true }
                 }
-            ])(`Should $text module identifiers that are defined in the 'importMap' option while in $viteCmd mode.`, async ({ viteCmd, expected }) => {
+            ])(`Should $text module identifiers that are defined in the 'importMap' option while '${mode}' externalization mode and Vite's $viteCmd mode.`, async ({ viteCmd, expected }) => {
                 const plugin = cjsAimPlugin({ importMap: { imports: { 'foo': '/foo.js' } }, externalizationMode: mode });
-                await (plugin.configResolved as ViteConfigResolvedHookFn)({ command: viteCmd } as ResolvedConfig);
-                const resolved = await (plugin.resolveId as ViteResolveIdHookFn)('foo', undefined, { ssr: false });
+                await plugin.configResolved.bind({} as PluginContext)({ command: viteCmd } as ResolvedConfig);
+                const resolved = await (plugin.resolveId.handler.bind({} as PluginContext))('foo', undefined);
                 if (expected && mode === 'id') {
                     expected.id = 'foo';
                 }
@@ -596,8 +596,8 @@ describe("cjsAimPlugin", () => {
             });
             test(`Should externalize by returning the ${mode === 'id' ? 'same ID' : 'resolved ID'} while in '${mode}' externalization mode and Vite's build mode.`, async () => {
                 const plugin = cjsAimPlugin({ importMap: { imports: { 'foo': '/foo.js' } }, externalizationMode: mode });
-                await (plugin.configResolved as ViteConfigResolvedHookFn)({ command: 'build' } as ResolvedConfig);
-                const resolved = await (plugin.resolveId as ViteResolveIdHookFn)('foo', undefined, { ssr: false });
+                await plugin.configResolved.bind({} as PluginContext)({ command: 'build' } as ResolvedConfig);
+                const resolved = await (plugin.resolveId.handler.bind({} as PluginContext))('foo', undefined);
                 if (mode === 'id') {
                     expect(resolved).toEqual({ id: 'foo', external: true });
                 }
@@ -680,6 +680,83 @@ describe("cjsAimPlugin", () => {
                 'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type'
             });
+        });
+    });
+    [
+        'serve' as const,
+        'build' as const
+    ].forEach(viteCmd => {
+        const testPrefix = `${viteCmd}: `;
+        describe(`Virtual Import Map Module (${viteCmd} mode)`, () => {
+            test(`${testPrefix}Should resolve the virtual import map module ID.`, async () => {
+                const plugin = cjsAimPlugin();
+                await plugin.configResolved.bind({} as PluginContext)({ command: viteCmd } as ResolvedConfig);
+                const resolved = await plugin.resolveId.handler.bind({} as PluginContext)(importMapModuleName, undefined);
+                expect(resolved).toEqual(virtualizedImportMapModuleId);
+            });
+            test(`${testPrefix}Should return a module that exports 'undefined' when no import map is available.`, async () => {
+                const plugin = cjsAimPlugin();
+                await plugin.configResolved.bind({} as PluginContext)({ command: viteCmd } as ResolvedConfig);
+                const loadResult = await plugin.load.bind({} as PluginContext)(virtualizedImportMapModuleId);
+                const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+                eval(loadResult?.code.replace('export const importMap =', 'console.log(') + ')');
+                expect(consoleLogSpy).toHaveBeenCalledWith(undefined);
+                consoleLogSpy.mockRestore();
+            });
+            if (viteCmd === 'build') {
+                test(`${testPrefix}Should return a module that exports the import map when an import map is available.`, async () => {
+                    const im = { imports: { 'abc': '/abs.js' } } satisfies ImportMap;
+                    const plugin = cjsAimPlugin({ importMap: im });
+                    await plugin.configResolved.bind({} as PluginContext)({ command: viteCmd } as ResolvedConfig);
+                    const loadResult = await plugin.load.bind({} as PluginContext)(virtualizedImportMapModuleId);
+                    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+                    eval(loadResult?.code.replace('export const importMap =', 'console.log(') + ')');
+                    expect(consoleLogSpy).toHaveBeenCalledWith(im);
+                    consoleLogSpy.mockRestore();
+                });
+            }
+            else {
+                test(`${testPrefix}Should return a module that exports the import map when an import map is available.`, async () => {
+                    const im = { imports: { 'abc': '/sba.js' } } satisfies ImportMap;
+                    const req: Connect.IncomingMessage = {
+                        method: "POST",
+                        url: defaultImportMapEndpoint,
+                        headers: {
+                            origin: 'http://localhost'
+                        },
+                        on: (event: string, callback: (data?: string) => void) => {
+                            if (event === 'data') {
+                                callback(JSON.stringify(im));
+                            }
+                            else if (event === 'end') {
+                                callback();
+                            }
+                    },
+                    } as Connect.IncomingMessage;
+                    const res = {
+                        statusCode: 0,
+                        writeHead: vi.fn(),
+                        end: vi.fn()
+                    } as unknown as ServerResponse;
+                    let handler: Connect.SimpleHandleFunction;
+                    const devServer = await createServer();
+                    const preparePlugin = async (pluginOptions?: CollageJsAimPluginOptions, base?: string) => {
+                        base ??= '/';
+                        const plugin = cjsAimPlugin(pluginOptions);
+                        await (plugin.configResolved as ViteConfigResolvedHookFn)({ base, command: "serve" } as ResolvedConfig);
+                        return plugin;
+                    };
+                    const plugin = await preparePlugin();
+                    await plugin.configureServer.bind({} as PluginContext)(devServer);
+                    handler = devServer.middlewares.stack.find(m => m.route === defaultImportMapEndpoint)?.handle as Connect.SimpleHandleFunction;
+                    handler!(req, res);
+                    const loadResult = await plugin.load.bind({} as PluginContext)(virtualizedImportMapModuleId);
+                    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+                    eval(loadResult?.code.replace('export const importMap =', 'console.log(') + ')');
+                    expect(consoleLogSpy).toHaveBeenCalledWith(im);
+                    consoleLogSpy.mockRestore();
+                });
+            }
         });
     });
 });

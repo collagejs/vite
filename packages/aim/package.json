@@ -6,12 +6,16 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "!dist/index-im.js"
   ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./im": {
+      "types": "./dist/index-im.d.ts"
     }
   },
   "scripts": {
