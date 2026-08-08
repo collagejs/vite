@@ -16,6 +16,8 @@ const defaultOptions = {
     aim: true,
 };
 
+export const virtualizedExtensionModuleId = `\0${extensionModuleName}`;
+
 /**
  * Factory function that produces the `@collagejs/vite-css` plugin factory.  Yes, a factory of factories.
  * 
@@ -164,19 +166,28 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
             resolveId: {
                 order: 'pre',
                 handler(source, importer, _options) {
-                    if (allModuleNames.includes(source)) {
-                        console.debug(`Resolving module ${source} imported by ${importer}`);
-                        return source;
+                    if (source === extensionModuleName) {
+                        console.debug(`Resolving ${extensionModuleName} to ${virtualizedExtensionModuleId}`);
+                        return virtualizedExtensionModuleId;
+                    }
+                    if (importer?.startsWith(virtualizedExtensionModuleId) && allModuleNames.includes(source)) {
+                        console.debug(`Resolving ${source} to ${virtualizedExtensionModuleId}/${source.replace(/^\.\//, '')}`);
+                        return `${virtualizedExtensionModuleId}/${source.replace(/^\.\//, '')}`;
                     }
                     return null;
                 }
             },
             async load(id, _options) {
-                if (id === extensionModuleName) {
+                if (id === virtualizedExtensionModuleId) {
+                    console.debug(`Loading ${virtualizedExtensionModuleId}`);
                     return exModule = exModule ?? (await buildExModule());
                 }
-                else if (allModuleNames.includes(id)) {
-                    return await readFile(buildPeerModulePath(id), { encoding: 'utf8' });
+                else if (id.startsWith(virtualizedExtensionModuleId)) {
+                    console.debug(`Loading ${id}`);
+                    return await readFile(
+                        buildPeerModulePath(id.replace(`${virtualizedExtensionModuleId}/`, './')),
+                        { encoding: 'utf8' }
+                    );
                 }
                 return null;
             },

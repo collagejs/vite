@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pluginFactory } from '../src/plugin-factory.js';
+import { pluginFactory, virtualizedExtensionModuleId } from '../src/plugin-factory.js';
 import path from 'path';
 import type { InputOptions, OutputBundle, OutputChunk, OutputOptions, PreRenderedAsset } from 'rolldown';
 import type { ConfigEnv, UserConfig } from 'vite';
@@ -254,7 +254,7 @@ describe('pluginFactory', () => {
             expect(config?.server?.origin).to.equal(tc.expectedOrigin);
         });
     });
-    const exModuleIdResolutionTest = async (viteCmd: ConfigEnv['command'], source: string, expectedResult: string | null) => {
+    const exModuleIdResolutionTest = async (viteCmd: ConfigEnv['command'], source: string, importer: string | undefined, expectedResult: string | null) => {
         // Arrange.
         const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444 }))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
@@ -262,7 +262,7 @@ describe('pluginFactory', () => {
 
         // Act
         // @ts-expect-error
-        const resolvedId = (plugIn.resolveId?.handler as ResolveIdHandler)(source);
+        const resolvedId = (plugIn.resolveId?.handler as ResolveIdHandler)(source, importer);
 
         // Assert.
         expect(resolvedId).to.equal(expectedResult);
@@ -270,22 +270,41 @@ describe('pluginFactory', () => {
     const exModuleIdResolutionTestData = [
         {
             source: 'abc',
+            importer: undefined,
             expectedResult: null,
             text: 'not '
         },
         {
             source: '@collagejs/vite-css',
+            importer: undefined,
             expectedResult: null,
             text: 'not '
         },
-        ...allModuleNames.map(name => ({ source: name, expectedResult: name, text: '' }))
+        {
+            source: extensionModuleName,
+            importer: undefined,
+            expectedResult: virtualizedExtensionModuleId,
+            text: ''
+        },
+        ...allModuleNames.map(name => ({
+            source: name,
+            importer: virtualizedExtensionModuleId,
+            expectedResult: `${virtualizedExtensionModuleId}/${name.replace(/^\.\//, '')}`,
+            text: ''
+        })),
+        ...allModuleNames.map(name => ({
+            source: name,
+            importer: extensionModuleName,
+            expectedResult: null,
+            text: 'not '
+        })),
     ];
     for (let cmd of viteCommands) {
         for (let tc of exModuleIdResolutionTestData) {
-            it(`Should ${tc.text}positively identify the module ID "${tc.source}" on ${cmd}.`, () => exModuleIdResolutionTest(cmd, tc.source, tc.expectedResult));
+            it(`Should ${tc.text}positively identify the module ID "${tc.source}" on ${cmd}.`, () => exModuleIdResolutionTest(cmd, tc.source, tc.importer, tc.expectedResult));
         }
     }
-    const exModuleBuildingTest = async (viteCmd: ConfigEnv['command'], moduleId: string, expectedModuleName: string) => {
+    const exModuleBuildingTest = async (viteCmd: ConfigEnv['command'], moduleId: string, importer: string | undefined, expectedModuleName: string) => {
         // Arrange.
         let expectedModuleRead = false;
         const moduleContent = 'abc - def';
@@ -303,50 +322,57 @@ describe('pluginFactory', () => {
         const plugIn = (await pluginFactory(readFile)({ serverPort: 4444 }))[0];
         const env: ConfigEnv = { command: viteCmd, mode: 'development' };
         await (plugIn.config as ConfigHandler)({}, env);
+        // @ts-expect-error
+        const resolvedId = (plugIn.resolveId?.handler as ResolveIdHandler)(moduleId, importer);
 
         // Act.
-        const moduleCode = await (plugIn.load as LoadHandler)(moduleId);
+        const moduleCode = await (plugIn.load as LoadHandler)(resolvedId);
 
         // Assert.
         expect(expectedModuleRead).to.equal(true);
         expect(moduleCode).to.contain(moduleContent);
     };
-    const exModuleBuildingTestData: { cmd: ConfigEnv['command'], moduleId: string, expectedModuleName: string }[] = [
+    const exModuleBuildingTestData: {
+        cmd: ConfigEnv['command'];
+        moduleId: string;
+        importer: string | undefined;
+        expectedModuleName: string;
+    }[] = [
         {
             cmd: 'build',
             moduleId: extensionModuleName,
+            importer: undefined,
             expectedModuleName: 'css.js',
         },
         {
             cmd: 'build',
             moduleId: extensionModuleName,
+            importer: undefined,
             expectedModuleName: 'vite-env.js',
         },
-        {
-            cmd: 'build',
-            moduleId: cssHelpersModuleName,
-            expectedModuleName: cssHelpersModuleName.substring(2),
-        },
-        {
-            cmd: 'build',
-            moduleId: cssLoggerModuleName,
-            expectedModuleName: cssLoggerModuleName.substring(2),
-        },
+        ...allModuleNames.map(name => ({
+            cmd: 'build' as const,
+            moduleId: name,
+            importer: virtualizedExtensionModuleId,
+            expectedModuleName: name.substring(2),
+        })),
         {
             cmd: 'serve',
             moduleId: extensionModuleName,
+            importer: undefined,
             expectedModuleName: 'no-css.js',
         },
         {
             cmd: 'serve',
             moduleId: extensionModuleName,
+            importer: undefined,
             expectedModuleName: 'vite-env.js',
         },
     ];
     for (let tc of exModuleBuildingTestData) {
         it(
             `Should include the contents of module "${tc.expectedModuleName}" on ${tc.cmd} while loading module ID "${tc.moduleId}".`,
-            () => exModuleBuildingTest(tc.cmd, tc.moduleId, tc.expectedModuleName)
+            () => exModuleBuildingTest(tc.cmd, tc.moduleId, tc.importer, tc.expectedModuleName)
         );
     }
     const viteEnvValueReplacementTest = async (viteCmd: ConfigEnv['command'], mode: ConfigEnv['mode']) => {
@@ -367,7 +393,7 @@ describe('pluginFactory', () => {
         await (plugIn.config as ConfigHandler)({}, env);
 
         // Act.
-        const moduleCode = await (plugIn.load as LoadHandler)(extensionModuleName);
+        const moduleCode = await (plugIn.load as LoadHandler)(virtualizedExtensionModuleId);
 
         // Assert.
         expect(moduleCode).to.contain(`${viteCmd === 'serve'}\n${viteCmd === 'build'}\n${mode}`);
