@@ -1,5 +1,12 @@
 # @collagejs/vite-css
 
+## 0.9.0
+
+### Minor Changes
+
+- 636cc24: feat: Don't override server.origin if previously set
+- 1a801a0: feat(css): Remove the localhostSsl option
+
 ## 0.8.0
 
 ### Minor Changes
