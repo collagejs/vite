@@ -11,7 +11,6 @@ import wjConfig from 'wj-config';
 import { CssMap } from './private-types.js';
 
 const defaultOptions = {
-    localhostSsl: false,
     input: 'src/piece.ts',
     aim: true,
 };
@@ -31,7 +30,6 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
         const cssOpt = await wjConfig()
             .addObject(config as CollageJsCssPluginOptions)
             .postMerge(async cfg => {
-                cfg.localhostSsl ??= defaultOptions.localhostSsl;
                 cfg.aim ??= defaultOptions.aim;
                 cfg.input ??= defaultOptions.input;
                 cfg.projectId ??= JSON.parse(await readFile('./package.json', { encoding: 'utf8' })).name;
@@ -101,10 +99,11 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
          */
         async function mifeConfig(cfg: UserConfig, viteOpts: ConfigEnv) {
             const computedConfig: UserConfig = {};
+            const localhostSsl = !!cfg.server?.https;
             computedConfig.server = {
                 strictPort: true,
                 port: cssOpt.serverPort,
-                origin: `http${cssOpt.localhostSsl ? 's' : ''}://localhost:${cssOpt.serverPort}`,
+                origin: `http${localhostSsl ? 's' : ''}://localhost:${cssOpt.serverPort}`,
             };
             computedConfig.preview = {
                 port: cssOpt.serverPort,

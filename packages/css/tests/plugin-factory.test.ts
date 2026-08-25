@@ -243,12 +243,14 @@ describe('pluginFactory', () => {
     ].forEach(tc => {
         it(`Should configure Vite's server.origin property as "${tc.expectedOrigin}".`, async () => {
             // Arrange.
-            const options: CollageJsCssPluginOptions = { serverPort: tc.port, localhostSsl: tc.localhostSsl };
+            const options: CollageJsCssPluginOptions = { serverPort: tc.port };
             const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
             const env: ConfigEnv = { command: 'build', mode: 'development' };
 
             // Act.
-            const config = await (plugIn.config as ConfigHandler)({}, env);
+            const config = await (plugIn.config as ConfigHandler)({
+                server: tc.localhostSsl ? { https: {} } : undefined
+            }, env);
 
             // Assert.
             expect(config?.server?.origin).to.equal(tc.expectedOrigin);
