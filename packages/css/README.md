@@ -56,10 +56,6 @@ This should work for any Vite-powered project.
 
 The only required option:  The port number this project will be assigned when running locally using `npm run dev` or `npm run preview`.
 
-### `localhostSsl`
-
-A Boolean value, whose default value is `false` that indicates if Vite's development server should use SSL (https).
-
 ### `input`
 
 This is one very important option to know.  Its default value is `src/piece.ts`, but can also be an array of strings.  In short, this is the list of files that export *CollageJS* piece factories.  This is the list of modules whose exports we want visible.

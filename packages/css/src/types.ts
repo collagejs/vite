@@ -34,11 +34,6 @@ export type CollageJsCssPluginOptions = {
      */
     serverPort: number;
     /**
-     * Indicates whether the development server uses SSL (HTTPS) or not (HTTP).
-     * @default false
-     */
-    localhostSsl?: boolean | undefined;
-    /**
      * The path to the file that exports the CollageJS factory functions, or multiple paths if the project exports 
      * factories from multiple files.
      * @default 'src/piece.ts'
