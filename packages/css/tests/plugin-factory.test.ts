@@ -256,6 +256,20 @@ describe('pluginFactory', () => {
             expect(config?.server?.origin).to.equal(tc.expectedOrigin);
         });
     });
+    it("Should skip the server.origin configuration if the user configuration already specifies it.", async () => {
+        // Arrange.
+        const options: CollageJsCssPluginOptions = { serverPort: 4321 };
+        const plugIn = (await pluginFactory(readPkgJsonFile)(options))[0];
+        const env: ConfigEnv = { command: 'build', mode: 'development' };
+        const config = await (plugIn.config as ConfigHandler)({
+            server: {
+                origin: 'http://example.com'
+            }
+        }, env);
+
+        // Assert.
+        expect(config?.server?.origin).to.equal(undefined);
+    });
     const exModuleIdResolutionTest = async (viteCmd: ConfigEnv['command'], source: string, importer: string | undefined, expectedResult: string | null) => {
         // Arrange.
         const plugIn = (await pluginFactory(readPkgJsonFile)({ serverPort: 4444 }))[0];

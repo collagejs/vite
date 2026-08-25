@@ -99,12 +99,14 @@ export function pluginFactory(readFileFn?: typeof fs.readFile): (config: Collage
          */
         async function mifeConfig(cfg: UserConfig, viteOpts: ConfigEnv) {
             const computedConfig: UserConfig = {};
-            const localhostSsl = !!cfg.server?.https;
             computedConfig.server = {
                 strictPort: true,
                 port: cssOpt.serverPort,
-                origin: `http${localhostSsl ? 's' : ''}://localhost:${cssOpt.serverPort}`,
             };
+            if (!cfg.server?.origin) {
+                const localhostSsl = !!cfg.server?.https;
+                computedConfig.server.origin = `http${localhostSsl ? 's' : ''}://localhost:${cssOpt.serverPort}`;
+            }
             computedConfig.preview = {
                 port: cssOpt.serverPort,
             };
